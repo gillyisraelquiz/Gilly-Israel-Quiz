@@ -32,6 +32,7 @@
            getDocs, serverTimestamp,
            setDoc, getDoc, doc,
            deleteDoc, writeBatch }             from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getAnalytics, logEvent }            from "https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js";
 
   const firebaseConfig = {
     apiKey:            "AIzaSyC9bbLFNqAu5elsiWEmuFC_f4tZiPIRtLA",
@@ -43,17 +44,20 @@
     measurementId:     "G-QVGCFLQE9W"
   };
 
-  const app  = initializeApp(firebaseConfig);
+  const app       = initializeApp(firebaseConfig);
   initializeAppCheck(app, {
     provider: new ReCaptchaV3Provider('6Lda1oIsAAAAADHAztu6yP3k4Pe81Q_u0yujccMY'),
     isTokenAutoRefreshEnabled: true,
   });
-  const auth = getAuth(app);
-  const db   = getFirestore(app);
+  const auth      = getAuth(app);
+  const db        = getFirestore(app);
+  const analytics = getAnalytics(app);
 
   // ── Expose to window so the rest of the (non-module) script can call these ──
-  window._fbAuth = auth;
-  window._fbDb   = db;
+  window._fbAuth      = auth;
+  window._fbDb        = db;
+  window._fbAnalytics = analytics;
+  window._logEvent    = (eventName, params) => logEvent(analytics, eventName, params);
   window._fbFns  = {
     signOut, GoogleAuthProvider, signInWithPopup,
     createUserWithEmailAndPassword, signInWithEmailAndPassword,
@@ -690,6 +694,14 @@
     color: #fff; border-color: transparent;
   }
   #sb-top5-btn.active:hover { opacity: 0.9; }
+  #sb-share-btn {
+    display: none; align-items: center; gap: 5px;
+    background: #25D366; border: none;
+    color: #fff; font-size: 0.75rem; font-weight: 700; cursor: pointer;
+    padding: 4px 10px; border-radius: 8px; line-height: 1; white-space: nowrap;
+    transition: opacity 0.18s; font-family: inherit;
+  }
+  #sb-share-btn:hover { opacity: 0.88; }
   #sb-close-btn {
     display: none; background: transparent; border: none;
     color: var(--muted); font-size: 1rem; cursor: pointer;
@@ -1306,13 +1318,18 @@
   /* OVERLAY */
   #overlay {
     position: fixed; inset: 0;
-    background: rgba(244,246,249,0.95);
-    backdrop-filter: blur(8px);
+    background: rgba(244,246,249,0.97);
     z-index: 8000;
+    overflow: hidden;
+  }
+  #overlay-scroll-area {
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
     display: flex; align-items: flex-start; justify-content: center;
     padding: 20px;
     padding-top: 80px;
-    overflow-y: auto;
+    z-index: 2;
   }
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 14px 28px 16px; max-width: 440px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 8px 40px rgba(0,0,0,0.08); }
   .card h2 { font-family: 'Playfair Display', 'Alef', serif; font-size: 1.8rem; font-weight: 900; margin-bottom: 10px; background: linear-gradient(90deg, #1a6fd4, #7c3aed); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
@@ -1968,7 +1985,7 @@
 
   /* DESKTOP – enlarge menu card & contents */
   @media (min-width: 769px) {
-    #overlay {
+    #overlay-scroll-area {
       padding-top: 48px;
     }
     .card {
@@ -2379,7 +2396,7 @@
     }
 
     /* Overlay on mobile */
-    #overlay {
+    #overlay-scroll-area {
       padding-top: 70px;
       align-items: flex-start;
     }
@@ -3247,6 +3264,9 @@
   <!-- Background planes -->
   <div class="planes-layer" id="planes-layer"></div>
 
+  <!-- Scrollable content area (keeps clouds/planes outside the scroll container) -->
+  <div id="overlay-scroll-area">
+
   <!-- Main menu card -->
   <div class="card" id="menu-card" style="z-index:2;background:transparent;border:none;box-shadow:none;">
     <div class="menu-title-section">
@@ -3319,6 +3339,7 @@
     <div id="sb-header">
       <h3 id="scoreboard-title"><span style="-webkit-text-fill-color:initial;background:none">🏆</span> Leaderboard</h3>
       <div id="sb-header-actions">
+        <button id="sb-share-btn" onclick="shareLeaderboardScore()" aria-label="שתף ניקוד / Share score" style="display:none"></button>
         <button id="sb-top5-btn" onclick="toggleTop5View()">▲ Top 10</button>
         <button id="sb-close-btn" onclick="document.getElementById('scoreboard-panel').classList.remove('show')" aria-label="סגור לוח תוצאות / Close scoreboard">✕</button>
       </div>
@@ -3464,6 +3485,8 @@
       </div>
     </div>
   </div>
+
+  </div><!-- /#overlay-scroll-area -->
 </div>
 
 <div id="terms-modal" role="dialog" aria-modal="true" aria-labelledby="terms-modal-title" onclick="if(event.target===this)closeTermsModal()">
@@ -3577,6 +3600,13 @@
 <script src="towns.js"></script>
 
 <script>
+// ── HTML ESCAPE UTILITY (XSS prevention) ───────────────────────────────────
+function esc(s) {
+  const d = document.createElement('div');
+  d.appendChild(document.createTextNode(s));
+  return d.innerHTML;
+}
+
 // ── FOCUS TRAP UTILITY ─────────────────────────────────────────────────────
 const FOCUSABLE_SELECTORS = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 let _focusTrapHandlers = {};
@@ -5313,6 +5343,9 @@ function handleRegionKey(e, region) {
 
 function useHint() {
   if (hintUsed || waiting || hintsLeft <= 0) return;
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('hint_used', { difficulty });
+  }
   closeMobileTools();
   hintUsed = true;
   hintsLeft--;
@@ -5648,6 +5681,9 @@ async function showLearningResults() {
   const leveledUp = prevTier !== null && newTier !== prevTier;
   const mastered = learningSessionResults.filter(r => r.mastered).length;
   const total = learningSessionResults.length;
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('learning_session_complete', { mastered, total, tier: prevTier });
+  }
 
   const heDir = lang === 'he' ? 'rtl' : 'ltr';
   const nickname = document.getElementById('settings-nickname').value.trim() || '';
@@ -5721,6 +5757,9 @@ async function showLearningResults() {
 }
 
 function showLevelUpPopup(newTier) {
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('learning_level_up', { new_tier: newTier ?? 'all_mastered' });
+  }
   const overlay = document.getElementById('lr-levelup-overlay');
   const isAllMastered = newTier === null;
   const heDir = lang === 'he' ? 'rtl' : 'ltr';
@@ -5919,6 +5958,9 @@ function cancelDailyChallengeIntro() {
 }
 
 function startDailyChallengeGame() {
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('daily_challenge_start', {});
+  }
   closeDailyChallengeIntro();
 
   // Reuse the town and nearby point preloaded during the intro popup (to avoid
@@ -6097,6 +6139,9 @@ async function startLearning() {
   }
 
   isLearningMode = true;
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('learning_mode_start', { tier });
+  }
   learningIdx = 0;
   learningAttempt = 0;
   learningSessionResults = [];
@@ -6125,6 +6170,9 @@ async function startLearning() {
 }
 
 function startGame() {
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('quiz_game_start', { difficulty, region: region || 'all' });
+  }
   const tierFilter = TOWNS.filter(t => t.tier <= DIFF[difficulty].maxTier);
   const regionFilter = REGION_GROUPS[region];
   const pool = regionFilter
@@ -6202,6 +6250,9 @@ function onMapClick(e) {
   score += scorePts + (newStreak >= 3 && perfect ? 10 : 0);
   results.push({ town, hit: perfect, distKm: distKm.toFixed(1), pts });
   if (newStreak >= 3 && perfect) {
+    if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+      window._logEvent('streak_milestone', { streak: newStreak });
+    }
     showStreakBanner(newStreak);
   } else if (!perfect) {
     // Hide banner with fade-out animation on a non-close guess
@@ -6271,6 +6322,12 @@ function onMapClick(e) {
 function showResults() {
   const pct = (score / (roundCount * DIFF[difficulty].maxPts)) * 100;
   const hits = results.filter(r => r.hit).length;
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('quiz_game_complete', {
+      score: Math.floor(score), difficulty, region: region || 'all',
+      hits, rounds: roundCount
+    });
+  }
   document.getElementById('result-emoji').textContent = pct >= 80 ? '🏆' : pct >= 50 ? '🌟' : '📚';
   document.getElementById('result-title').textContent =
     pct >= 80 ? t('result_excellent') : pct >= 50 ? t('result_good') : t('result_practice');
@@ -6336,7 +6393,7 @@ window._onAuthChange = function(user) {
   if (user) {
     label.textContent = user.displayName ? user.displayName.split(' ')[0] : 'Account';
     if (user.photoURL) {
-      avatar.innerHTML = `<img src="${user.photoURL}" alt="avatar"/>`;
+      avatar.innerHTML = `<img src="${esc(user.photoURL)}" alt="avatar"/>`;
     } else {
       avatar.innerHTML = '';
       avatar.textContent = (user.displayName || user.email || '?').charAt(0).toUpperCase();
@@ -6671,10 +6728,10 @@ async function loadHistory() {
         : '—';
       return `<div class="history-row">
         <div>
-          <div style="font-weight:600">${d.hits}/${d.rounds} correct</div>
-          <div class="h-meta">${diffLabel[d.difficulty] || d.difficulty} · ${regionLabel[d.region] || d.region} · ${date}</div>
+          <div style="font-weight:600">${esc(String(d.hits))}/${esc(String(d.rounds))} correct</div>
+          <div class="h-meta">${diffLabel[d.difficulty] || esc(String(d.difficulty))} · ${regionLabel[d.region] || esc(String(d.region))} · ${esc(date)}</div>
         </div>
-        <div class="h-score">${d.score} pts</div>
+        <div class="h-score">${esc(String(d.score))} pts</div>
       </div>`;
     }).join('');
     section.classList.add('show');
@@ -6737,8 +6794,9 @@ function launchConfetti() {
 }
 
 // ── SCOREBOARD ────────────────────────────────────────────────────────────
-let _sbData = null;   // cached scoreboard state for view toggling
-let _sbTop5  = false; // true when Top 5 view is active
+let _sbData      = null;   // cached scoreboard state for view toggling
+let _sbTop5      = false;  // true when Top 5 view is active
+let _sbShareData = null;   // cached data for share button
 
 function renderPlayerRow(p, globalRank) {
   let rankHtml;
@@ -6753,7 +6811,7 @@ function renderPlayerRow(p, globalRank) {
     <div class="sb-row ${p.isMe ? 'sb-me' : ''}">
       ${rankHtml}
       <span class="sb-name">
-        <span class="sb-name-text">${p.isMe ? `<strong>${p.name}</strong>` : p.name}</span>
+        <span class="sb-name-text">${p.isMe ? `<strong>${esc(p.name)}</strong>` : esc(p.name)}</span>
         <span class="sb-level-badge">${lvlText}</span>
       </span>
       <span class="sb-score">${p.score}</span>
@@ -6812,6 +6870,20 @@ function toggleTop5View() {
   }
 }
 
+function shareLeaderboardScore() {
+  if (!_sbShareData) return;
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('leaderboard_share', {});
+  }
+  const { myScore, topPct, showTopPct } = _sbShareData;
+  const url = 'https://gilly.co.il';
+  const placeStr = showTopPct ? `Top ${topPct}%` : '';
+  const text = lang === 'he'
+    ? `\u200Fשיחקתי חידון ישראל של גילי וקיבלתי ${myScore} נקודות${placeStr ? ` (${placeStr})` : ''} 🇮🇱\nשחק/י גם: ${url}`
+    : `I scored ${myScore} pts${placeStr ? ` (${placeStr})` : ''} on Gilly's Israel Quiz! 🇮🇱\nPlay now: ${url}`;
+  window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+}
+
 // ── Daily Challenge score saving & percentile display ─────────────────────
 
 async function saveDailyScore(myScore) {
@@ -6854,7 +6926,12 @@ async function showDailyPercentile(myScore) {
     const msg = lang === 'he'
       ? `🗺️ גילי – אתגר יומי\nניקוד: ${Math.floor(myScore)} נקודות${extra ? ' | ' + extra : ''}\nשחקו גם: ${_gameUrl}`
       : `🗺️ Gilly's Israel Quiz – Daily Challenge\nScore: ${Math.floor(myScore)} pts${extra ? ' | ' + extra : ''}\nPlay now: ${_gameUrl}`;
-    shareBtnEl.onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+    shareBtnEl.onclick = () => {
+      if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+        window._logEvent('daily_challenge_share', {});
+      }
+      window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+    };
   }
   _setShare(null); // initial: score only, updated per branch below
 
@@ -6953,16 +7030,21 @@ async function showDailyPercentile(myScore) {
 }
 
 async function loadScoreboard(myScore) {
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('leaderboard_reached', {});
+  }
   const section = document.getElementById('scoreboard-panel');
   const list    = document.getElementById('scoreboard-list');
   const guest   = document.getElementById('scoreboard-guest');
   const top5Btn = document.getElementById('sb-top5-btn');
   section.classList.add('show');
   list.innerHTML = '';
-  _sbData  = null;
-  _sbTop5  = false;
+  _sbData      = null;
+  _sbTop5      = false;
+  _sbShareData = null;
   top5Btn.classList.remove('active');
   top5Btn.innerHTML = '▲ Top 10';
+  document.getElementById('sb-share-btn').style.display = 'none';
 
   // Update lang labels
   document.getElementById('scoreboard-title').innerHTML = '<span style="-webkit-text-fill-color:initial;background:none">🏆</span> ' + (lang === 'he' ? 'לוח תוצאות' : 'Leaderboard');
@@ -7039,7 +7121,7 @@ async function loadScoreboard(myScore) {
     const summaryHtml = `
       <div class="sb-summary">
         <div class="sb-summary-left">
-          <div class="sb-summary-name">${myName}</div>
+          <div class="sb-summary-name">${esc(myName)}</div>
           <div class="sb-level-badge">${myLvlText}</div>
         </div>
         <div class="sb-summary-right">
@@ -7054,8 +7136,14 @@ async function loadScoreboard(myScore) {
     // Store data for view toggling
     _sbData = { players, summaryHtml, insertIdx };
 
-    // Show Top 5 button now that data is loaded
+    // Store data for sharing
+    _sbShareData = { myScore, rank: currentScoreRank, totalForRank, topPct, showTopPct, myName, myLvlText };
+
+    // Show Top 5 button and share button now that data is loaded
     top5Btn.style.display = 'inline-block';
+    const shareBtnEl = document.getElementById('sb-share-btn');
+    shareBtnEl.style.display = 'inline-flex';
+    shareBtnEl.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> ${lang === 'he' ? 'שתף' : 'Share'}`;
 
     // Render scrollable 100-score view
     list.innerHTML = renderScrollableView();
@@ -7084,6 +7172,9 @@ showResults = async function() {
   // ── Daily Challenge: save score anonymously and show percentile popup ──
   if (isDailyChallenge) {
     document.getElementById('history-section').classList.remove('show');
+    if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+      window._logEvent('daily_challenge_complete', { score: Math.floor(score) });
+    }
     showDailyPercentile(score);
     return;
   }
@@ -7098,6 +7189,9 @@ showResults = async function() {
     const result = await saveScore({ score, difficulty, region, rounds: roundCount, hits });
     if (result?.ok) {
       if (result.isNewRecord) {
+        if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+          window._logEvent('new_high_score', { score: Math.floor(score), difficulty, region: region || 'all' });
+        }
         recScore.textContent = `${score} ${lang === 'he' ? 'נקודות' : 'pts'}`;
         recSub.textContent = lang === 'he'
           ? `השגת שיא חדש של ${score} נקודות!`
@@ -7285,6 +7379,11 @@ function openSharePopup() {
   document.getElementById('challenge-link-area').style.display = 'none';
   document.getElementById('challenge-search-input').value = '';
   _hideChallengeDropdown();
+
+  // Analytics: track share button usage — logged-in (non-anonymous) users only
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('share_menu_open', { source: 'main_menu' });
+  }
 }
 
 function closeSharePopup() {
@@ -7382,6 +7481,9 @@ function _getChallengeUrl(town) {
 
 function shareChallengeCreate(method) {
   if (!challengePickedTown) return;
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('challenge_share_create', { method });
+  }
   const url = _getChallengeUrl(challengePickedTown);
   const townName = lang === 'he' ? challengePickedTown.nameHe : challengePickedTown.name;
   if (method === 'wa') {
@@ -7431,6 +7533,9 @@ function showChallengeIntro() {
 }
 
 function startChallengeGame() {
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('challenge_accepted', {});
+  }
   document.getElementById('challenge-intro').classList.remove('open');
   difficulty = 'medium';
   region = 'all';
@@ -7515,6 +7620,9 @@ function showChallengeResult() {
 
 function shareChallengeResult(method) {
   if (!_challengeResult || !_challengeTown) return;
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('challenge_share_result', { method });
+  }
   const { distKm, perfect } = _challengeResult;
   const url = _getChallengeUrl(_challengeTown);
   const townName = lang === 'he' ? _challengeTown.nameHe : _challengeTown.name;
