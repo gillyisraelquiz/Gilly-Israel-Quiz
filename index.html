@@ -2774,6 +2774,170 @@
     100% { background-position: 300% 50%; }
   }
 
+  /* ── Quiz Progress Popup ─────────────────────────────────────────────────── */
+  #quiz-progress-popup {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(0,0,0,0.62);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    align-items: center;
+    justify-content: center;
+  }
+  #quiz-progress-popup.show { display: flex; }
+  #quiz-progress-card {
+    background: var(--surface);
+    border-radius: 24px;
+    padding: 0 22px 22px;
+    width: min(360px, 92vw);
+    box-shadow: 0 8px 40px rgba(26,111,212,0.15), 0 20px 60px rgba(0,0,0,0.28);
+    animation: recordCardEntry 0.45s cubic-bezier(.34,1.3,.64,1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow: hidden;
+  }
+  #qp-accent-bar {
+    height: 5px;
+    background: linear-gradient(90deg, #1a6fd4 0%, #7c3aed 50%, #22c55e 100%);
+    margin: 0 -22px 18px;
+    width: calc(100% + 44px);
+    flex-shrink: 0;
+  }
+  #qp-auth { width: 100%; display: flex; flex-direction: column; align-items: center; }
+  #qp-level-section {
+    width: 100%; text-align: center; margin: 8px 0 12px;
+    background: linear-gradient(135deg, #1a6fd4 0%, #7c3aed 65%, #a855f7 100%);
+    border-radius: 18px;
+    padding: 18px 18px 16px;
+    box-shadow: 0 6px 28px rgba(124,58,237,0.32), 0 1px 4px rgba(0,0,0,0.1);
+    position: relative; overflow: hidden;
+  }
+  #qp-level-section::before {
+    content: ''; position: absolute;
+    top: -35px; right: -28px;
+    width: 110px; height: 110px; border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+  }
+  #qp-level-section::after {
+    content: ''; position: absolute;
+    bottom: -25px; left: -22px;
+    width: 90px; height: 90px; border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+  }
+  #qp-level-title {
+    font-family: 'Playfair Display','Alef',serif;
+    color: white; -webkit-text-fill-color: white; background: none;
+    margin-bottom: 4px; line-height: 1; position: relative; z-index: 1;
+  }
+  .qp-level-word {
+    display: block; font-size: 0.68rem; font-weight: 800;
+    letter-spacing: 4px; text-transform: uppercase;
+    color: rgba(255,255,255,0.75); margin-bottom: 2px;
+  }
+  .qp-level-num {
+    display: block; font-size: 3.6rem; font-weight: 900; line-height: 1;
+    text-shadow: 0 3px 16px rgba(0,0,0,0.22);
+  }
+  #qp-level-name {
+    font-size: 1.05rem; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; color: rgba(255,255,255,0.92);
+    margin-bottom: 14px; position: relative; z-index: 1;
+  }
+  #qp-progress-wrap { width: 100%; position: relative; z-index: 1; }
+  #qp-progress-track {
+    width: 100%; height: 10px;
+    background: rgba(255,255,255,0.18);
+    border-radius: 99px; overflow: hidden; position: relative;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.18);
+    border: 1px solid rgba(255,255,255,0.28);
+  }
+  #qp-progress-fill {
+    height: 100%; border-radius: 99px;
+    background: linear-gradient(90deg, #15803d, #22c55e, #4ade80, #22c55e, #15803d);
+    background-size: 300% 100%;
+    animation: lrBarShimmer 2.5s linear infinite;
+    position: relative;
+    transition: width 1.2s cubic-bezier(.34,1.2,.64,1);
+    min-width: 0;
+    box-shadow: 0 0 18px rgba(34,197,94,0.55), 0 0 6px rgba(74,222,128,0.35), inset 0 1px 2px rgba(255,255,255,0.35);
+  }
+  #qp-diff-tip {
+    display: none; width: 100%; font-size: 0.8rem; text-align: center;
+    padding: 6px 10px; margin-top: 8px; border-radius: 8px;
+    background: rgba(154,103,0,0.1); color: #7a5500;
+    border: 1px solid rgba(154,103,0,0.25);
+  }
+  #qp-diff-tip.show { display: block; }
+  #qp-list {
+    width: 100%; max-height: 200px; overflow-y: auto;
+    margin-top: 10px; border-radius: 10px; border: 1px solid var(--border);
+  }
+  #qp-list::-webkit-scrollbar { width: 4px; }
+  #qp-list::-webkit-scrollbar-thumb { background: #c8ccd2; border-radius: 99px; }
+  .qp-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 10px; font-size: 0.87rem;
+    border-bottom: 1px solid var(--border); gap: 8px;
+  }
+  .qp-row:last-child { border-bottom: none; }
+  .qp-town-name {
+    flex: 1; font-weight: 600; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .qp-fam-wrap { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+  .qp-fam-dots { display: flex; gap: 3px; }
+  .qp-fam-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    border: 1.5px solid var(--muted); background: transparent;
+  }
+  .qp-fam-dot.dot-yellow { background: #f59e0b; border-color: #f59e0b; }
+  .qp-fam-dot.dot-green  { background: #16a34a; border-color: #16a34a; }
+  .qp-region { font-size: 0.72rem; font-weight: 600; color: var(--muted); flex-shrink: 0; }
+  /* guest state */
+  #qp-guest {
+    width: 100%; display: none; flex-direction: column;
+    align-items: center; text-align: center;
+  }
+  .qp-guest-icon {
+    line-height: 1; margin-bottom: 10px;
+    display: flex; justify-content: center;
+  }
+  .qp-cool-pin {
+    filter: drop-shadow(0 4px 8px rgba(180,30,30,0.45)) drop-shadow(0 1px 2px rgba(0,0,0,0.25));
+    animation: qpPinBounce 2s ease-in-out infinite;
+    display: block;
+  }
+  @keyframes qpPinBounce {
+    0%, 100% { transform: translateY(0) scale(1); }
+    35%       { transform: translateY(-10px) scale(1.07); }
+    65%       { transform: translateY(-4px) scale(1.03); }
+  }
+  #qp-guest-title {
+    font-size: 1rem; font-weight: 800; color: var(--text);
+    margin-bottom: 14px; line-height: 1.45;
+  }
+  #qp-guest-progress-wrap { width: 100%; margin-bottom: 18px; }
+  #qp-guest-progress-track {
+    width: 100%; height: 10px; background: var(--border);
+    border-radius: 99px; overflow: hidden; position: relative;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.09);
+  }
+  #qp-guest-progress-fill {
+    position: absolute; top: 0; bottom: 0; left: 0; width: 30%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, rgba(26,111,212,0.4), #1a6fd4, #7c3aed, rgba(124,58,237,0.4));
+    box-shadow: 0 0 14px rgba(26,111,212,0.45), inset 0 1px 2px rgba(255,255,255,0.3);
+    animation: qpGuestSweep 2s ease-in-out infinite;
+  }
+  @keyframes qpGuestSweep {
+    0%   { left: -30%; opacity: 0.6; }
+    50%  { opacity: 1; }
+    100% { left: 100%; opacity: 0.6; }
+  }
+
   /* ── Level-Up Popup ────────────────────────────────────────────────────── */
   #lr-levelup-overlay {
     display: none;
@@ -3398,6 +3562,45 @@
   </div>
 </div>
 
+<!-- ── QUIZ PROGRESS POPUP ────────────────────────────────────────────── -->
+<div id="quiz-progress-popup" role="dialog" aria-modal="true">
+  <div id="quiz-progress-card">
+    <div id="qp-accent-bar"></div>
+    <!-- Logged-in view -->
+    <div id="qp-auth">
+      <div id="qp-emoji" style="font-size:2.2rem;margin-bottom:2px">🗺️</div>
+      <div id="qp-nickname" style="font-size:1rem;font-weight:800;text-align:center;letter-spacing:0.3px;color:var(--text);margin-bottom:2px"></div>
+      <div id="qp-level-section">
+        <div id="qp-level-title"></div>
+        <div id="qp-level-name"></div>
+        <div id="qp-progress-wrap">
+          <div id="qp-progress-track">
+            <div id="qp-progress-fill" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+      <div id="qp-diff-tip"></div>
+      <div id="qp-list"></div>
+      <div style="display:flex;flex-direction:column;gap:8px;width:100%;margin-top:12px">
+        <button class="btn btn-primary" id="qp-scores-btn" onclick="closeQuizProgress()" style="width:100%">🏆 View Scores</button>
+        <button class="btn-secondary" id="qp-menu-btn" onclick="showMenu()" style="width:100%;text-align:center;padding:9px 16px">← Menu</button>
+      </div>
+    </div>
+    <!-- Guest view -->
+    <div id="qp-guest">
+      <div class="qp-guest-icon"><svg class="qp-cool-pin" viewBox="0 0 40 52" width="52" height="64" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="qpPinG1" cx="38%" cy="30%" r="65%"><stop offset="0%" stop-color="#ff8080"/><stop offset="60%" stop-color="#e53935"/><stop offset="100%" stop-color="#b71c1c"/></radialGradient></defs><path d="M20 1C9.5 1 1 9.5 1 20c0 14.5 19 38 19 38s19-23.5 19-38C39 9.5 30.5 1 20 1z" fill="url(#qpPinG1)"/><circle cx="20" cy="20" r="7.5" fill="white" opacity="0.9"/></svg></div>
+      <div id="qp-guest-title"></div>
+      <div id="qp-guest-progress-wrap">
+        <div id="qp-guest-progress-track">
+          <div id="qp-guest-progress-fill"></div>
+        </div>
+      </div>
+      <button class="sb-guest-cta" onclick="openLoginModal()" id="qp-signin-btn" style="width:100%;justify-content:center"></button>
+      <button class="btn-secondary" onclick="closeQuizProgress()" id="qp-guest-skip-btn" style="width:100%;text-align:center;padding:8px 16px;margin-top:8px"></button>
+    </div>
+  </div>
+</div>
+
 <!-- ── DAILY CHALLENGE PERCENTILE POPUP ──────────────────────────────── -->
 <div id="daily-percentile-popup" role="dialog" aria-modal="true" aria-labelledby="dp-title">
   <div id="daily-percentile-card">
@@ -3432,7 +3635,7 @@
     <div class="record-title-en">New Personal Best!</div>
     <div class="record-score-display" id="new-record-score"></div>
     <div class="record-sub-he" id="new-record-sub"></div>
-    <button id="new-record-close" onclick="document.getElementById('new-record-popup').classList.remove('show')">&#128170; Nice!</button>
+    <button id="new-record-close" onclick="closeRecordPopup()">&#128170; Nice!</button>
   </div>
 </div>
 
@@ -3702,6 +3905,13 @@ const DIFF = {
   hard:   { maxPts:100, maxKm:20,  maxTier:4, color:"#cf2316" },
 };
 
+// Tier preference multipliers per difficulty: higher tiers get more weight on harder difficulties
+const TIER_DIFF_WEIGHT = {
+  easy:   { 1: 1,   2: 0,   3: 0,   4: 0   },
+  medium: { 1: 1,   2: 3,   3: 0,   4: 0   },
+  hard:   { 1: 0.3, 2: 0.7, 3: 2,   4: 3   },
+};
+
 // Perfect radius by tier: bigger places are easier to hit for full points
 const PERFECT_RADIUS_KM = { 1: 5, 2: 3, 3: 2, 4: 1 };
 
@@ -3719,10 +3929,10 @@ const LEARNING_TIER_NAMES = {
 };
 
 const PLAYER_LEVEL_NAMES = {
-  1: { en: 'City Rat',       he: 'עכבר העיר'    },
-  2: { en: 'Periphery Fox',  he: 'שועל פריפריה' },
-  3: { en: 'Country Mouse',  he: 'עכבר הכפר'    },
-  4: { en: 'Trail King',     he: 'מלך השבילים'  },
+  1: { en: 'Waze Dependent',    he: 'תלוי בווייז'   },
+  2: { en: 'Periphery Fox',     he: 'שועל פריפריה'  },
+  3: { en: 'Satellite Brain',   he: 'מוח לווייני'   },
+  4: { en: 'King of the Trails', he: 'מלך השבילים'  },
 };
 
 // Time bonus: up to +30 pts, decays to 0 over TIME_BONUS_SECS seconds
@@ -4174,8 +4384,9 @@ function applyLang() {
 }
 
 let lang = "he";
-let difficulty = "medium", region = "all", sequence = [], currentIdx = 0, score = 0, roundCount = 8;
+let difficulty = "easy", region = "all", sequence = [], currentIdx = 0, score = 0, roundCount = 8;
 let streak = 0, hintUsed = false, streetUsedThisRound = false, results = [], waiting = false;
+let locationFamiliarity = {}; // { [townName]: 0 | 1 | 2 } — 0=unfamiliar, 1=partly, 2=familiar
 let correctMarkers = [], clickMarker = null, circle = null, hintCircle = null, guessLine = null;
 
 // ── Challenge mode state ──────────────────────────────────────────────────────
@@ -4188,7 +4399,7 @@ let hintsLeft = 3, hintAnimFrame = null;
 // ── Learning Mode State ───────────────────────────────────────────────────────
 let isLearningMode = false;
 let learningSequence = [], learningIdx = 0, learningAttempt = 0;
-let knownLocations = [], learningSessionResults = [], learningPins = [];
+let learningSessionResults = [], learningPins = [];
 let learningPreviewActive = false, learningPreviewTimer = null, learningPreviewInterval = null;
 
 // ── Daily Challenge State ─────────────────────────────────────────────────────
@@ -4972,6 +5183,28 @@ function shuffle(arr) {
   return a;
 }
 
+// Weighted random sampling without replacement using locationFamiliarity.
+// Weights: unfamiliar(0)=20, partly familiar(1)=10, fully familiar(2)=1.
+// Optional weights Map (name → number) overrides familiarity-based weights.
+function weightedSample(pool, n, weights) {
+  const W = { 0: 20, 1: 10, 2: 1 };
+  const count = Math.min(n, pool.length);
+  const entries = pool.map(t => ({ town: t, w: weights ? (weights.get(t.name) ?? 1) : W[locationFamiliarity[t.name] ?? 0] }));
+  const selected = [];
+  for (let i = 0; i < count; i++) {
+    const total = entries.reduce((s, e) => s + e.w, 0);
+    let r = Math.random() * total;
+    let idx = 0;
+    for (; idx < entries.length - 1; idx++) {
+      r -= entries[idx].w;
+      if (r <= 0) break;
+    }
+    selected.push(entries[idx].town);
+    entries.splice(idx, 1);
+  }
+  return selected;
+}
+
 function haversineKm(lat1, lng1, lat2, lng2) {
   const R = 6371, toR = Math.PI / 180;
   const dLat = (lat2 - lat1) * toR, dLng = (lng2 - lng1) * toR;
@@ -5538,6 +5771,7 @@ function showMenu() {
   document.querySelectorAll('#planes-layer .formation').forEach(f => f.remove());
   document.getElementById('results-panel').className = '';
   document.getElementById('scoreboard-panel').className = '';
+  document.getElementById('quiz-progress-popup').classList.remove('show');
   document.getElementById('btn-back').style.display = 'none';
   closeMobileTools();
   clearAllMarkers();
@@ -5553,26 +5787,14 @@ function showMenu() {
 
 // ── Learning Mode ─────────────────────────────────────────────────────────────
 
-function getLearningTier() {
+function getFamiliarityLevel() {
   for (let tier = 1; tier <= 4; tier++) {
     const allInTier = TOWNS.filter(t => t.tier === tier);
-    if (!allInTier.every(t => knownLocations.includes(t.name))) return tier;
+    if (!allInTier.every(t => (locationFamiliarity[t.name] ?? 0) >= 2)) return tier;
   }
   return null; // all tiers complete
 }
 
-function showKnownPins() {
-  clearLearningPins();
-  const known = new Set(knownLocations);
-  TOWNS.forEach(t => {
-    if (!known.has(t.name)) return;
-    const pin = L.circleMarker([t.lat, t.lng], {
-      radius: 5, color: '#1a7f37', weight: 1.5,
-      fillColor: '#1a7f37', fillOpacity: 0.7,
-    }).addTo(map);
-    learningPins.push(pin);
-  });
-}
 
 function clearLearningPins() {
   learningPins.forEach(p => map.removeLayer(p));
@@ -5716,20 +5938,10 @@ function advanceLearning() {
 }
 
 async function showLearningResults() {
-  const masteredNames = learningSessionResults.filter(r => r.mastered).map(r => r.town.name);
-  const prevKnownSet = new Set(knownLocations);
-  const newKnown = [...knownLocations, ...masteredNames.filter(n => !prevKnownSet.has(n))];
-  const prevTier = getLearningTier();
+  // Familiarity is only updated in quiz game mode, not in learning mode
+  const prevTier = getFamiliarityLevel();
 
-  knownLocations = newKnown;
-  if (window._fbUser && masteredNames.length > 0) {
-    try {
-      const { setDoc, doc } = window._fbFns;
-      await setDoc(doc(window._fbDb, 'users', window._fbUser.uid), { knownLocations: newKnown }, { merge: true });
-    } catch (e) { console.error('Failed to save known locations:', e); }
-  }
-
-  const newTier = getLearningTier();
+  const newTier = getFamiliarityLevel();
   const leveledUp = prevTier !== null && newTier !== prevTier;
   const mastered = learningSessionResults.filter(r => r.mastered).length;
   const total = learningSessionResults.length;
@@ -5738,7 +5950,7 @@ async function showLearningResults() {
   }
 
   const heDir = lang === 'he' ? 'rtl' : 'ltr';
-  const nickname = document.getElementById('settings-nickname').value.trim() || '';
+  const nickname = window._userNickname || document.getElementById('settings-nickname').value.trim() || '';
 
   document.getElementById('lr-nickname').textContent = nickname;
   document.getElementById('lr-emoji').textContent = mastered === total ? '🏆' : mastered > 0 ? '🌟' : '📚';
@@ -5750,9 +5962,10 @@ async function showLearningResults() {
 
   // Progress bar — show progress within the current (or just-completed) tier
   const tierForDisplay = newTier ?? prevTier ?? 4;
-  const tierKnown = TOWNS.filter(t => t.tier === tierForDisplay && knownLocations.includes(t.name)).length;
-  const tierTotal = TOWNS.filter(t => t.tier === tierForDisplay).length;
-  const pct = tierTotal > 0 ? Math.round((tierKnown / tierTotal) * 100) : 100;
+  const allInTierDisplay = TOWNS.filter(t => t.tier === tierForDisplay);
+  const tierTotal = allInTierDisplay.length;
+  const progressPts = allInTierDisplay.reduce((sum, t) => sum + (locationFamiliarity[t.name] ?? 0) / 2, 0);
+  const pct = tierTotal > 0 ? Math.round((progressPts / tierTotal) * 100) : 100;
   const levelNameForDisplay = PLAYER_LEVEL_NAMES[tierForDisplay];
 
   const lrLevelTitle = document.getElementById('lr-level-title');
@@ -5767,7 +5980,8 @@ async function showLearningResults() {
     ? (lang === 'he' ? levelNameForDisplay.he : levelNameForDisplay.en)
     : '';
 
-  document.getElementById('lr-progress-text').textContent = `${tierKnown} / ${tierTotal}`;
+  const famPts = allInTierDisplay.reduce((sum, t) => sum + (locationFamiliarity[t.name] ?? 0), 0);
+  document.getElementById('lr-progress-text').textContent = `${famPts} / ${tierTotal * 2}`;
   // Animate the bar from 0
   const fillEl = document.getElementById('lr-progress-fill');
   fillEl.style.width = '0%';
@@ -5780,11 +5994,25 @@ async function showLearningResults() {
     setTimeout(() => showLevelUpPopup(newTier), 600);
   }
 
-  document.getElementById('lr-list').innerHTML = learningSessionResults.map(r => {
-    const name = lang === 'he' ? r.town.nameHe : r.town.name;
-    return `<div class="lr-row" dir="${heDir}">
-      <span>${r.mastered ? '✅' : '❌'} ${name}</span>
-      <span class="${r.mastered ? 'lr-badge-mastered' : 'lr-badge-next'}">${r.mastered ? (lang === 'he' ? 'שולט!' : 'Mastered!') : (lang === 'he' ? 'בפעם הבאה' : 'Next Time')}</span>
+  // Familiarity list — same format as the Progress popup
+  const REGION_LABELS = {
+    en: { North: 'North', Center: 'Center', South: 'South', Jerusalem: 'Center', 'West Bank': 'Center' },
+    he: { North: 'צפון', Center: 'מרכז', South: 'דרום', Jerusalem: 'מרכז', 'West Bank': 'מרכז' },
+  };
+  const regionMap = REGION_LABELS[lang === 'he' ? 'he' : 'en'];
+  document.getElementById('lr-list').innerHTML = allInTierDisplay.map(t => {
+    const name        = lang === 'he' ? (t.nameHe || t.name) : t.name;
+    const fam         = locationFamiliarity[t.name] ?? 0;
+    const d1          = fam >= 1 ? (fam === 1 ? 'dot-yellow' : 'dot-green') : '';
+    const d2          = fam >= 2 ? 'dot-green' : '';
+    const regionLabel = regionMap[t.region] || t.region || '';
+    return `<div class="qp-row">
+      <span class="qp-town-name">${name}</span>
+      <span class="qp-region">${regionLabel}</span>
+      <span class="qp-fam-dots">
+        <span class="qp-fam-dot ${d1}"></span>
+        <span class="qp-fam-dot ${d2}"></span>
+      </span>
     </div>`;
   }).join('');
 
@@ -5798,7 +6026,7 @@ async function showLearningResults() {
     continueBtn.style.display = '';
     continueBtn.textContent = lang === 'he' ? '📚 המשך ללמוד' : '📚 Continue Learning';
   }
-  menuBtn.textContent = lang === 'he' ? '← תפריט' : '← Menu';
+  menuBtn.textContent = lang === 'he' ? 'תפריט ←' : '← Menu';
 
   document.getElementById('town-name').textContent = '';
   document.getElementById('town-desc').textContent = '';
@@ -5816,7 +6044,7 @@ function showLevelUpPopup(newTier) {
   const isAllMastered = newTier === null;
   const heDir = lang === 'he' ? 'rtl' : 'ltr';
 
-  const nickname = document.getElementById('settings-nickname').value.trim() || '';
+  const nickname = window._userNickname || document.getElementById('settings-nickname').value.trim() || '';
   document.getElementById('lr-levelup-nickname').textContent = nickname;
 
   const titleEl = document.getElementById('lr-levelup-title');
@@ -5868,6 +6096,17 @@ function showLevelUpPopup(newTier) {
 
 function closeLevelUpPopup() {
   document.getElementById('lr-levelup-overlay').classList.remove('show');
+}
+
+let _pendingLevelUp = null; // { newLevel } — set after quiz game if level-up occurred
+
+function closeRecordPopup() {
+  document.getElementById('new-record-popup').classList.remove('show');
+  if (_pendingLevelUp !== null) {
+    const lvl = _pendingLevelUp;
+    _pendingLevelUp = null;
+    setTimeout(() => showLevelUpPopup(lvl), 300);
+  }
 }
 
 async function continueLearning() {
@@ -6171,22 +6410,23 @@ async function startLearning() {
   try {
     const { getDoc, doc } = window._fbFns;
     const userSnap = await getDoc(doc(window._fbDb, 'users', window._fbUser.uid));
-    knownLocations = userSnap.exists() ? (userSnap.data().knownLocations || []) : [];
+    if (userSnap.exists() && userSnap.data().locationFamiliarity) {
+      locationFamiliarity = { ...userSnap.data().locationFamiliarity };
+    }
   } catch (e) {
-    knownLocations = [];
-    console.error('Failed to load known locations:', e);
+    console.error('Failed to load locationFamiliarity:', e);
   }
 
-  const tier = getLearningTier();
+  const tier = getFamiliarityLevel();
   if (tier === null) {
     showFeedback(lang === 'he' ? '🏆 שלטת בכל המיקומים!' : '🏆 All locations mastered!', '#1a7f37');
     return;
   }
 
   const allInTier = TOWNS.filter(t => t.tier === tier);
-  learningSequence = allInTier.filter(t => !knownLocations.includes(t.name)).slice(0, LEARNING_SESSION_SIZE);
+  learningSequence = allInTier.filter(t => (locationFamiliarity[t.name] ?? 0) < 2).slice(0, LEARNING_SESSION_SIZE);
   if (learningSequence.length === 0) {
-    showFeedback(lang === 'he' ? '🎉 כל המיקומים ברמה זו ידועים!' : '🎉 All locations in this level known!', '#1a7f37');
+    showFeedback(lang === 'he' ? '🎉 כל המיקומים ברמה זו נלמדו!' : '🎉 All locations in this level fully learned!', '#1a7f37');
     return;
   }
 
@@ -6221,17 +6461,41 @@ async function startLearning() {
   loadLearningTown();
 }
 
-function startGame() {
+async function startGame() {
   if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
     window._logEvent('quiz_game_start', { difficulty, region: region || 'all' });
+  }
+  // Load locationFamiliarity FIRST so weighted selection uses fresh data
+  if (window._fbUser && !window._fbUser.isAnonymous && window._fbFns && window._fbDb) {
+    try {
+      const { getDoc, doc } = window._fbFns;
+      const snap = await getDoc(doc(window._fbDb, 'users', window._fbUser.uid));
+      if (snap.exists() && snap.data().locationFamiliarity) {
+        locationFamiliarity = { ...snap.data().locationFamiliarity };
+      }
+    } catch (e) { console.error('Failed to load locationFamiliarity:', e); }
   }
   const tierFilter = TOWNS.filter(t => t.tier <= DIFF[difficulty].maxTier);
   const regionFilter = REGION_GROUPS[region];
   const pool = regionFilter
     ? tierFilter.filter(t => regionFilter.includes(t.region))
     : tierFilter;
-  // If somehow fewer than 8 towns in pool, take all of them
-  sequence = shuffle(pool).slice(0, Math.min(8, pool.length));
+  // Phase 1: guarantee minimum from player's current level for progress
+  const F = { 0: 20, 1: 10, 2: 1 };
+  const playerTier = getFamiliarityLevel() ?? 4;
+  const effectiveTier = Math.min(playerTier, DIFF[difficulty].maxTier);
+  const tierPool = pool.filter(t => t.tier === effectiveTier);
+  const minGuaranteed = Math.min(2, tierPool.length);
+  const tierSelected = weightedSample(tierPool, minGuaranteed);
+  // Phase 2: fill remaining slots skewed toward difficulty-appropriate tiers
+  const tierSelectedSet = new Set(tierSelected.map(t => t.name));
+  const restPool = pool.filter(t => !tierSelectedSet.has(t.name));
+  const diffWeights = new Map(restPool.map(t => [
+    t.name, (F[locationFamiliarity[t.name] ?? 0]) * (TIER_DIFF_WEIGHT[difficulty][t.tier] ?? 1)
+  ]));
+  const remaining = weightedSample(restPool, 8 - tierSelected.length, diffWeights);
+  // Outer shuffle randomises round order
+  sequence = shuffle([...tierSelected, ...remaining]);
   roundCount = sequence.length;
   currentIdx = score = streak = 0;
   results = [];
@@ -6301,6 +6565,22 @@ function onMapClick(e) {
   streak = newStreak;
   score += scorePts + (newStreak >= 3 && perfect ? 10 : 0);
   results.push({ town, hit: perfect, distKm: distKm.toFixed(1), pts });
+  // Track locationFamiliarity for quiz mode (not daily/challenge)
+  if (!isDailyChallenge && !isLearningMode) {
+    const nearPerfect = perfect || (pts / DIFF[difficulty].maxPts >= 0.9);
+    if (nearPerfect && town.tier === (getFamiliarityLevel() ?? 4)) {
+      const cur = locationFamiliarity[town.name] ?? 0;
+      if (cur < 2) {
+        locationFamiliarity[town.name] = cur + 1;
+        // Mid-game save — fire and forget to preserve progress on exit
+        if (window._fbUser && !window._fbUser.isAnonymous && window._fbFns && window._fbDb) {
+          const { setDoc, doc } = window._fbFns;
+          setDoc(doc(window._fbDb, 'users', window._fbUser.uid),
+            { locationFamiliarity }, { merge: true }).catch(console.error);
+        }
+      }
+    }
+  }
   if (newStreak >= 3 && perfect) {
     if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
       window._logEvent('streak_milestone', { streak: newStreak });
@@ -6415,7 +6695,7 @@ function showResults() {
 
 }
 
-setDiff('medium');
+setDiff('easy');
 setRegion('all');
 applyLang();
 
@@ -6473,11 +6753,26 @@ window._onAuthChange = function(user) {
           if (!data.nickname) {
             const defaultNick = generateRandomNickname();
             await setDoc(doc(window._fbDb, 'users', user.uid), { nickname: defaultNick }, { merge: true });
+            window._userNickname = defaultNick;
+          } else {
+            window._userNickname = data.nickname;
+          }
+          // Set default difficulty based on player level (only when on the menu)
+          const onMenu = document.getElementById('menu-card')?.style.display !== 'none';
+          if (data.locationFamiliarity && onMenu) {
+            locationFamiliarity = { ...data.locationFamiliarity };
+            const lvl = getFamiliarityLevel() ?? 4;
+            const defaultDiff = lvl <= 1 ? 'easy' : lvl === 2 ? 'medium' : 'hard';
+            setDiff(defaultDiff);
           }
         } else {
           // New user with no doc yet — create one with a default nickname
           const defaultNick = generateRandomNickname();
+          window._userNickname = defaultNick;
           await setDoc(doc(window._fbDb, 'users', user.uid), { nickname: defaultNick }, { merge: true });
+          // New user starts at level 1 → default to easy
+          const onMenu2 = document.getElementById('menu-card')?.style.display !== 'none';
+          if (onMenu2) setDiff('easy');
         }
       });
     });
@@ -6612,6 +6907,13 @@ async function _postAuthActions() {
     openFactModal(town);
     return;
   }
+  if (document.getElementById('quiz-progress-popup').classList.contains('show')) {
+    const hits = results.filter(r => r.pts >= 90).length;
+    await saveScore({ score, difficulty, region, rounds: roundCount, hits });
+    loadHistory();
+    showQuizProgress(_qpPendingScore); // refresh with logged-in view
+    return;
+  }
   if (_dpPendingScore !== null && document.getElementById('daily-percentile-popup').classList.contains('show')) {
     showDailyPercentile(_dpPendingScore);
   } else if (document.getElementById('scoreboard-panel').classList.contains('show')) {
@@ -6736,20 +7038,19 @@ async function saveScore(scoreData) {
     const { getDoc, setDoc, doc } = window._fbFns;
     const userRef  = doc(window._fbDb, 'users', window._fbUser.uid);
     const userSnap = await getDoc(userRef);
-    const current  = userSnap.exists() ? (userSnap.data().highest_score || 0) : 0;
+    const userData = userSnap.exists() ? userSnap.data() : {};
+    const current  = userData.highest_score || 0;
     const isNewRecord = scoreData.score > current;
-    // Ensure knownLocations is loaded so getLearningTier() returns the correct level
-    if (userSnap.exists() && userSnap.data().knownLocations) {
-      knownLocations = userSnap.data().knownLocations;
-    }
-    const tier = getLearningTier() || 4;
+    const oldLevel = userData.level || getFamiliarityLevel() || 4;
+    const tier = getFamiliarityLevel() || 4;
+    const isLevelUp = tier > oldLevel;
     if (isNewRecord) {
-      await setDoc(userRef, { highest_score: scoreData.score, level: tier }, { merge: true });
+      await setDoc(userRef, { highest_score: scoreData.score, level: tier, locationFamiliarity }, { merge: true });
     } else {
-      await setDoc(userRef, { level: tier }, { merge: true });
+      await setDoc(userRef, { level: tier, locationFamiliarity }, { merge: true });
     }
 
-    return { ok: true, isNewRecord };
+    return { ok: true, isNewRecord, isLevelUp, newLevel: isLevelUp ? tier : null };
   } catch (e) { console.error('Save score failed:', e); return { ok: false, isNewRecord: false }; }
 }
 
@@ -7173,12 +7474,12 @@ async function loadScoreboard(myScore) {
     const topPct           = showTopPct ? Math.max(1, Math.ceil((currentScoreRank / totalForRank) * 100)) : null;
 
     // Player's current level
-    const myLevel = myIdx !== -1 ? players[myIdx].level : (getLearningTier() || 4);
+    const myLevel = myIdx !== -1 ? players[myIdx].level : (getFamiliarityLevel() || 4);
     const myLvl   = PLAYER_LEVEL_NAMES[myLevel] || PLAYER_LEVEL_NAMES[1];
     const myLvlText = lang === 'he' ? myLvl.he : myLvl.en;
 
     // Player's nickname
-    const myName = myNickname || window._fbUser?.displayName?.split(' ')[0] || (lang === 'he' ? 'שחקן אנונימי' : 'Anonymous');
+    const myName = myNickname || window._userNickname || (lang === 'he' ? 'שחקן אנונימי' : 'Anonymous');
 
     // Place label: percentage if enough players, otherwise M/N
     const placeLabel = showTopPct
@@ -7228,6 +7529,104 @@ async function loadScoreboard(myScore) {
     list.innerHTML = `<div style="color:var(--muted);font-size:0.82rem;text-align:center;padding:8px 0">${lang === 'he' ? 'שגיאה בטעינה' : 'Could not load'}</div>`;
   }
 }
+// ── QUIZ PROGRESS POPUP ───────────────────────────────────────────────────
+let _qpPendingScore = null;
+
+function showQuizProgress(pendingScore) {
+  _qpPendingScore = pendingScore;
+  const isHe = lang === 'he';
+  const dir  = isHe ? 'rtl' : 'ltr';
+  const isLoggedIn = window._fbUser && !window._fbUser.isAnonymous;
+
+  document.getElementById('quiz-progress-card').dir = dir;
+  document.getElementById('qp-auth').style.display  = isLoggedIn ? '' : 'none';
+  document.getElementById('qp-guest').style.display = isLoggedIn ? 'none' : 'flex';
+
+  if (isLoggedIn) {
+    const nick = window._userNickname || document.getElementById('settings-nickname').value.trim() || generateRandomNickname();
+    document.getElementById('qp-nickname').textContent = nick;
+
+    const lvl      = getFamiliarityLevel() ?? 4;
+    const lvlNames = PLAYER_LEVEL_NAMES[lvl];
+    document.getElementById('qp-level-title').innerHTML = isHe
+      ? `<span class="qp-level-word">רמה</span><span class="qp-level-num">${lvl}</span>`
+      : `<span class="qp-level-word">LEVEL</span><span class="qp-level-num">${lvl}</span>`;
+    document.getElementById('qp-level-name').textContent  = lvlNames ? (isHe ? lvlNames.he : lvlNames.en) : '';
+
+    const allInTier    = TOWNS.filter(t => t.tier === lvl);
+    const totalCount   = allInTier.length;
+    const progressPts  = allInTier.reduce((sum, t) => sum + (locationFamiliarity[t.name] ?? 0) / 2, 0);
+    const pct          = totalCount > 0 ? Math.round(progressPts / totalCount * 100) : 0;
+
+    const fillEl = document.getElementById('qp-progress-fill');
+    fillEl.style.width = '0%';
+    requestAnimationFrame(() => { requestAnimationFrame(() => { fillEl.style.width = pct + '%'; }); });
+
+    const qpEmoji = document.getElementById('qp-emoji');
+    if (pct >= 80) { qpEmoji.textContent = '🏆'; }
+    else if (pct >= 30) { qpEmoji.textContent = '🗺️'; }
+    else { qpEmoji.innerHTML = '<svg class="qp-cool-pin" viewBox="0 0 40 52" width="52" height="64" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="qpPinG2" cx="38%" cy="30%" r="65%"><stop offset="0%" stop-color="#ff8080"/><stop offset="60%" stop-color="#e53935"/><stop offset="100%" stop-color="#b71c1c"/></radialGradient></defs><path d="M20 1C9.5 1 1 9.5 1 20c0 14.5 19 38 19 38s19-23.5 19-38C39 9.5 30.5 1 20 1z" fill="url(#qpPinG2)"/><circle cx="20" cy="20" r="7.5" fill="white" opacity="0.9"/></svg>'; }
+
+    const REGION_LABELS = {
+      en: { North: 'North', Center: 'Center', South: 'South', Jerusalem: 'Center', 'West Bank': 'Center' },
+      he: { North: 'צפון', Center: 'מרכז', South: 'דרום', Jerusalem: 'מרכז', 'West Bank': 'מרכז' },
+    };
+    const regionMap = REGION_LABELS[isHe ? 'he' : 'en'];
+    document.getElementById('qp-list').innerHTML = allInTier.map(t => {
+      const name        = isHe ? (t.nameHe || t.name) : t.name;
+      const fam         = locationFamiliarity[t.name] ?? 0;
+      const d1          = fam >= 1 ? (fam === 1 ? 'dot-yellow' : 'dot-green') : '';
+      const d2          = fam >= 2 ? 'dot-green' : '';
+      const regionLabel = regionMap[t.region] || t.region || '';
+      return `<div class="qp-row">
+        <span class="qp-town-name">${name}</span>
+        <span class="qp-region">${regionLabel}</span>
+        <span class="qp-fam-dots">
+          <span class="qp-fam-dot ${d1}"></span>
+          <span class="qp-fam-dot ${d2}"></span>
+        </span>
+      </div>`;
+    }).join('');
+
+    // Recommended difficulty tip
+    const recDiff = lvl === 1 ? 'easy' : lvl === 2 ? 'medium' : 'hard';
+    const diffTipEl = document.getElementById('qp-diff-tip');
+    if (difficulty !== recDiff) {
+      const DIFF_LABELS = { easy: { en: 'Easy', he: 'קל' }, medium: { en: 'Medium', he: 'בינוני' }, hard: { en: 'Hard', he: 'קשה' } };
+      const lbl = DIFF_LABELS[recDiff];
+      if (isHe) {
+        diffTipEl.textContent = `רמת משחק מומלצת: ${lbl.he}`;
+        diffTipEl.dir = 'rtl';
+      } else {
+        diffTipEl.textContent = `Recommended game difficulty: ${lbl.en}`;
+        diffTipEl.dir = 'ltr';
+      }
+      diffTipEl.classList.add('show');
+    } else {
+      diffTipEl.classList.remove('show');
+    }
+
+    document.getElementById('qp-scores-btn').textContent = isHe ? '🏆 לוח תוצאות' : '🏆 View Scores';
+    document.getElementById('qp-menu-btn').textContent   = isHe ? 'תפריט ←' : '← Menu';
+  } else {
+    const gTitle = document.getElementById('qp-guest-title');
+    gTitle.textContent = isHe ? 'התחבר כדי לעקוב אחר ההתקדמות במשחק' : 'Login to track game progress';
+    gTitle.dir = dir;
+    const signinBtn = document.getElementById('qp-signin-btn');
+    signinBtn.textContent = isHe ? 'התחבר ←' : 'Sign in →';
+    signinBtn.dir = dir;
+    document.getElementById('qp-guest-skip-btn').textContent = isHe ? 'המשך ללא חשבון' : 'Continue without account';
+  }
+
+  document.getElementById('quiz-progress-popup').classList.add('show');
+}
+
+function closeQuizProgress() {
+  document.getElementById('quiz-progress-popup').classList.remove('show');
+  loadScoreboard(_qpPendingScore);
+  _qpPendingScore = null;
+}
+
 const _origShowResults = showResults;
 showResults = async function() {
   _origShowResults();
@@ -7264,8 +7663,11 @@ showResults = async function() {
         recSub.textContent = lang === 'he'
           ? `השגת שיא חדש של ${score} נקודות!`
           : `You beat your best with ${score} pts!`;
+        if (result.isLevelUp) _pendingLevelUp = result.newLevel;
         recPopup.classList.add('show');
         launchConfetti();
+      } else if (result.isLevelUp) {
+        setTimeout(() => showLevelUpPopup(result.newLevel), 300);
       }
     }
     loadHistory();
@@ -7273,8 +7675,8 @@ showResults = async function() {
     document.getElementById('history-section').classList.remove('show');
   }
 
-  // Always show scoreboard (sign-in prompt for guests)
-  loadScoreboard(score);
+  // Show quiz progress popup before scoreboard
+  showQuizProgress(score);
 };
 
 // ── SETTINGS ──────────────────────────────────────────────────────────────
@@ -7319,12 +7721,14 @@ async function openSettingsModal() {
             nick = generateRandomNickname();
             setDoc(doc(window._fbDb, 'users', window._fbUser.uid), { nickname: nick }, { merge: true });
           }
+          window._userNickname = nick;
           document.getElementById('settings-nickname').value = nick;
           selectGender(data.gender || 'male');
           selectSettingsLang(data.language || lang);
           document.getElementById('settings-email-updates').checked = data.emailUpdates === true;
         } else {
           const nick = generateRandomNickname();
+          window._userNickname = nick;
           document.getElementById('settings-nickname').value = nick;
           setDoc(doc(window._fbDb, 'users', window._fbUser.uid), { nickname: nick }, { merge: true });
           selectGender('male');
@@ -7415,6 +7819,7 @@ async function saveSettings() {
 
   try {
     const { setDoc, doc } = window._fbFns;
+    window._userNickname = nickname;
     await setDoc(doc(window._fbDb, 'users', window._fbUser.uid), {
       nickname:    nickname,
       gender:      _selectedGender || null,
