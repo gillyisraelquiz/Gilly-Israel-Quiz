@@ -2,32 +2,54 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Gilly's Israel Quiz</title>
 <meta property="og:type"        content="website"/>
+<meta property="og:url"         content="https://gilly.co.il/"/>
 <meta property="og:title"       content="Gilly's Israel Quiz"/>
 <meta property="og:description" content="How well do you know Israel? Click on the map to find cities and towns!"/>
-<meta property="og:image"       content="logo.png"/>
-<meta property="og:image:width"  content="512"/>
-<meta property="og:image:height" content="512"/>
-<meta name="twitter:card"       content="summary"/>
-<meta name="twitter:title"      content="Gilly's Israel Quiz"/>
-<meta name="twitter:image"      content="logo.png"/>
+<meta property="og:image"       content="https://gilly.co.il/logo_nb.png"/>
+<meta property="og:image:width"  content="515"/>
+<meta property="og:image:height" content="485"/>
+<meta name="twitter:card"        content="summary"/>
+<meta name="twitter:title"       content="Gilly's Israel Quiz"/>
+<meta name="twitter:description" content="How well do you know Israel? Click on the map to find cities and towns!"/>
+<meta name="twitter:image"       content="https://gilly.co.il/logo_nb.png"/>
+<meta name="description" content="How well do you know Israel? Click on the map to find cities and towns! Test your geography knowledge with Gilly's Israel Quiz."/>
+<link rel="canonical" href="https://gilly.co.il/"/>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Gilly's Israel Quiz",
+  "url": "https://gilly.co.il/",
+  "description": "How well do you know Israel? Click on the map to find cities and towns!",
+  "applicationCategory": "GameApplication",
+  "genre": "Geography Quiz",
+  "inLanguage": "en",
+  "image": "https://gilly.co.il/logo_nb.png",
+  "operatingSystem": "Web"
+}
+</script>
+<link rel="icon" type="image/png" href="logo_head.png"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Alef:wght@400;700&family=Playfair+Display:wght@700;900&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet"/>
 <script type="module">
   import { initializeApp }                          from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
   import { getAuth, onAuthStateChanged, signOut,
            GoogleAuthProvider, signInWithPopup,
            createUserWithEmailAndPassword,
            signInWithEmailAndPassword,
            signInAnonymously,
-           updateProfile }                          from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+           updateProfile, deleteUser }              from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   import { getFirestore, collection, addDoc,
            query, where, orderBy, limit,
            getDocs, serverTimestamp,
-           setDoc, getDoc, doc }               from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+           setDoc, getDoc, doc,
+           deleteDoc, writeBatch }             from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getAnalytics, logEvent }            from "https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js";
 
   const firebaseConfig = {
     apiKey:            "AIzaSyC9bbLFNqAu5elsiWEmuFC_f4tZiPIRtLA",
@@ -39,20 +61,28 @@
     measurementId:     "G-QVGCFLQE9W"
   };
 
-  const app  = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db   = getFirestore(app);
+  const app       = initializeApp(firebaseConfig);
+  initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider('6Lda1oIsAAAAADHAztu6yP3k4Pe81Q_u0yujccMY'),
+    isTokenAutoRefreshEnabled: true,
+  });
+  const auth      = getAuth(app);
+  const db        = getFirestore(app);
+  const analytics = getAnalytics(app);
 
   // ── Expose to window so the rest of the (non-module) script can call these ──
-  window._fbAuth = auth;
-  window._fbDb   = db;
+  window._fbAuth      = auth;
+  window._fbDb        = db;
+  window._fbAnalytics = analytics;
+  window._logEvent    = (eventName, params) => logEvent(analytics, eventName, params);
   window._fbFns  = {
     signOut, GoogleAuthProvider, signInWithPopup,
     createUserWithEmailAndPassword, signInWithEmailAndPassword,
     signInAnonymously,
     updateProfile, collection, addDoc, query, where,
     orderBy, limit, getDocs, serverTimestamp,
-    setDoc, getDoc, doc
+    setDoc, getDoc, doc,
+    deleteDoc, writeBatch, deleteUser
   };
 
   onAuthStateChanged(auth, user => {
@@ -181,6 +211,9 @@
     from { opacity:0; transform: scale(0.88) translateY(16px); }
     to   { opacity:1; transform: scale(1)    translateY(0); }
   }
+  #login-card.google-pending #login-main-section {
+    filter: blur(3px); opacity: 0.45; pointer-events: none;
+  }
   #login-card h2 {
     font-family: 'Playfair Display', 'Alef', serif; font-size: 1.7rem;
     font-weight: 900; text-align: center; margin-bottom: 2px;
@@ -244,6 +277,45 @@
     align-items: center; justify-content: center;
   }
   #settings-modal.open { display: flex; }
+  #terms-modal {
+    display: none; position: fixed; inset: 0; z-index: 10200;
+    background: rgba(0,0,0,0.55); backdrop-filter: blur(4px);
+    align-items: center; justify-content: center; padding: 20px;
+  }
+  #terms-modal.open { display: flex; }
+  #terms-modal-card {
+    background: var(--surface); border-radius: 16px;
+    padding: 32px 28px 24px; width: min(560px, 94vw);
+    max-height: 80vh; overflow-y: auto; position: relative;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.28);
+  }
+  #terms-modal-close {
+    position: absolute; top: 12px; right: 14px; background: none; border: none;
+    font-size: 1.4rem; line-height: 1; cursor: pointer; color: var(--text);
+  }
+  #terms-modal-card h2 { margin: 0 0 14px; font-size: 1.1rem; }
+  #terms-modal-card ol { padding-inline-start: 1.4em; margin: 0; }
+  #terms-modal-card li { margin-bottom: 10px; font-size: 0.87rem; line-height: 1.6; }
+  #privacy-modal {
+    display: none; position: fixed; inset: 0; z-index: 10200;
+    background: rgba(0,0,0,0.55); backdrop-filter: blur(4px);
+    align-items: center; justify-content: center; padding: 20px;
+  }
+  #privacy-modal.open { display: flex; }
+  #privacy-modal-card {
+    background: var(--surface); border-radius: 16px;
+    padding: 32px 28px 24px; width: min(560px, 94vw);
+    max-height: 80vh; overflow-y: auto; position: relative;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.28);
+  }
+  #privacy-modal-close {
+    position: absolute; top: 12px; right: 14px; background: none; border: none;
+    font-size: 1.4rem; line-height: 1; cursor: pointer; color: var(--text);
+  }
+  #privacy-modal-card h2 { margin: 0 0 4px; font-size: 1.1rem; }
+  #privacy-modal-card ol { padding-inline-start: 1.4em; margin: 12px 0 0; }
+  #privacy-modal-card li { margin-bottom: 10px; font-size: 0.87rem; line-height: 1.6; }
+  #privacy-modal-card .privacy-updated { font-size: 0.78rem; color: var(--text-muted, #888); margin-bottom: 14px; }
   #settings-card {
     background: var(--surface); border-radius: 20px;
     padding: 36px 32px 28px; width: min(400px, 92vw);
@@ -263,6 +335,47 @@
     font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
     letter-spacing: 1.2px; color: var(--muted);
   }
+  /* Signup email-updates checkbox */
+  #signup-email-updates-row {
+    display: none; align-items: flex-start; gap: 8px;
+    font-size: 0.78rem; color: var(--muted); line-height: 1.45; margin-top: 2px;
+  }
+  #signup-email-updates-row.visible { display: flex; }
+  #signup-email-updates-row input[type="checkbox"] {
+    margin-top: 2px; accent-color: #1a6fd4; cursor: pointer; flex-shrink: 0;
+  }
+  #signup-email-updates-row label { cursor: pointer; }
+  /* Signup terms checkbox */
+  #signup-terms-row {
+    display: none; align-items: flex-start; gap: 8px;
+    font-size: 0.78rem; color: var(--text); line-height: 1.45; margin-top: 2px;
+  }
+  #signup-terms-row.visible { display: flex; }
+  #signup-terms-row input[type="checkbox"] {
+    margin-top: 2px; accent-color: #1a6fd4; cursor: pointer; flex-shrink: 0;
+  }
+  #signup-terms-row label { cursor: pointer; }
+  #signup-terms-row a, .google-terms-row a { color: #1a6fd4; text-decoration: underline; }
+  /* Settings email-updates toggle */
+  #settings-email-updates-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0;
+  }
+  #settings-email-updates-lbl {
+    font-size: 0.82rem; color: var(--text); line-height: 1.4; flex: 1;
+  }
+  .toggle-switch { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .toggle-track {
+    position: absolute; inset: 0; background: var(--border);
+    border-radius: 22px; cursor: pointer; transition: background 0.2s;
+  }
+  .toggle-switch input:checked + .toggle-track { background: #1a6fd4; }
+  .toggle-track::after {
+    content: ''; position: absolute; top: 3px; left: 3px;
+    width: 16px; height: 16px; background: #fff;
+    border-radius: 50%; transition: transform 0.2s;
+  }
+  .toggle-switch input:checked + .toggle-track::after { transform: translateX(18px); }
   .gender-options {
     display: flex; gap: 8px;
   }
@@ -288,6 +401,40 @@
     background: none; border: none; font-size: 1.4rem;
     cursor: pointer; color: var(--muted); line-height: 1;
   }
+  #settings-delete-btn {
+    display: block; width: fit-content; margin: 4px auto 0;
+    padding: 7px 18px; border-radius: 10px;
+    border: 1.5px solid #333;
+    background: none; color: #111;
+    font-family: 'Source Serif 4', 'Alef', serif;
+    font-size: 0.85rem; font-weight: 700;
+    cursor: pointer; transition: all 0.15s;
+  }
+  #settings-delete-btn:hover { background: #f3f3f3; border-color: #000; }
+  #settings-delete-confirm {
+    display: none; flex-direction: column; gap: 10px;
+    border: 1.5px solid #cf2316; border-radius: 12px;
+    padding: 14px; background: #fff5f5;
+  }
+  #settings-delete-confirm.visible { display: flex; }
+  #settings-delete-confirm-msg {
+    font-size: 0.85rem; font-weight: 600; color: #cf2316; text-align: center;
+  }
+  .settings-delete-confirm-btns { display: flex; gap: 8px; }
+  .settings-delete-confirm-btns button {
+    flex: 1; padding: 9px 6px; border-radius: 10px;
+    font-family: 'Source Serif 4', 'Alef', serif;
+    font-size: 0.88rem; font-weight: 700; cursor: pointer;
+    transition: all 0.15s;
+  }
+  #settings-delete-cancel {
+    border: 1.5px solid var(--border); background: var(--bg); color: var(--text);
+  }
+  #settings-delete-yes {
+    border: none; background: #cf2316; color: #fff;
+  }
+  #settings-delete-yes:hover { background: #a81a0d; }
+  #settings-delete-yes:disabled { opacity: 0.6; cursor: not-allowed; }
 
   /* ── NICKNAME VALIDATION POPUP ────────────────────────────────────────── */
   #nickname-error-popup {
@@ -564,6 +711,14 @@
     color: #fff; border-color: transparent;
   }
   #sb-top5-btn.active:hover { opacity: 0.9; }
+  #sb-share-btn {
+    display: none; align-items: center; gap: 5px;
+    background: #25D366; border: none;
+    color: #fff; font-size: 0.75rem; font-weight: 700; cursor: pointer;
+    padding: 4px 10px; border-radius: 8px; line-height: 1; white-space: nowrap;
+    transition: opacity 0.18s; font-family: inherit;
+  }
+  #sb-share-btn:hover { opacity: 0.88; }
   #sb-close-btn {
     display: none; background: transparent; border: none;
     color: var(--muted); font-size: 1rem; cursor: pointer;
@@ -625,8 +780,48 @@
     letter-spacing: 2px; padding: 2px 0; opacity: 0.5;
   }
   #scoreboard-guest {
-    text-align: center; font-size: 0.85rem; color: var(--muted);
-    padding: 10px 0;
+    text-align: center; color: var(--muted);
+    padding: 0;
+  }
+  .sb-guest-blurred {
+    position: relative; overflow: hidden; pointer-events: none; user-select: none;
+    filter: blur(5px); opacity: 0.45; margin-bottom: -10px;
+  }
+  .sb-guest-blurred .sb-row { pointer-events: none; }
+  .sb-guest-overlay {
+    position: relative; z-index: 2;
+    background: linear-gradient(135deg, rgba(26,111,212,0.07), rgba(124,58,237,0.07));
+    border: 1.5px solid rgba(26,111,212,0.18);
+    border-radius: 14px; padding: 22px 16px 18px; margin-top: 6px;
+  }
+  .sb-guest-lock {
+    font-size: 2.2rem; line-height: 1; margin-bottom: 8px;
+    animation: sbGuestPulse 2.5s ease-in-out infinite;
+  }
+  @keyframes sbGuestPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.12); }
+  }
+  .sb-guest-hook {
+    font-size: 1.05rem; font-weight: 800; color: var(--text);
+    margin-bottom: 4px; line-height: 1.35;
+  }
+  .sb-guest-sub {
+    font-size: 0.82rem; color: var(--muted); margin-bottom: 14px;
+    line-height: 1.4;
+  }
+  .sb-guest-cta {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: linear-gradient(135deg, #1a6fd4, #7c3aed);
+    color: #fff; border: none; border-radius: 10px;
+    padding: 10px 22px; font-size: 0.95rem; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+    box-shadow: 0 4px 16px rgba(26,111,212,0.25);
+    transition: transform 0.18s, box-shadow 0.18s;
+  }
+  .sb-guest-cta:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 24px rgba(26,111,212,0.35);
   }
 
   /* TOP BAR */
@@ -634,15 +829,14 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 28px;
+    padding: 10px 18px;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     box-shadow: 0 1px 6px rgba(0,0,0,0.07);
     flex-shrink: 0;
-    gap: 16px;
-    flex-wrap: nowrap;
+    gap: 12px;
+    flex-wrap: wrap;
     position: relative;
-    min-height: 130px;
   }
   #topbar h1 {
     font-family: 'Playfair Display', 'Alef', serif;
@@ -652,24 +846,24 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     white-space: nowrap;
-    flex-shrink: 0;
   }
   #hud {
     display: flex;
     align-items: center;
-    gap: 24px;
-    margin-left: auto;
-    flex-shrink: 0;
+    gap: 20px;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
   }
   .hud-block {
     text-align: center;
-    padding: 8px 28px 12px;
+    padding: 2px 12px 5px;
     background: rgba(0,0,0,0.05);
-    border-radius: 14px;
+    border-radius: 10px;
     border: 1px solid rgba(0,0,0,0.08);
   }
-  .hud-label { font-size: 1.4rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); display: block; font-weight: 600; }
-  .hud-value { font-family: 'Playfair Display', 'Alef', serif; font-size: 3.4rem; font-weight: 900; line-height: 1; }
+  .hud-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); display: block; font-weight: 600; }
+  .hud-value { font-family: 'Playfair Display', 'Alef', serif; font-size: 1.7rem; font-weight: 900; line-height: 1; }
   #progress-bar-wrap { min-width: 140px; }
   #progress-bar-bg { height: 5px; background: rgba(255,255,255,0.07); border-radius: 99px; overflow: hidden; }
   #progress-bar-fill { height: 100%; background: linear-gradient(90deg, #58a6ff, #bc8cff); border-radius: 99px; transition: width 0.4s ease; width: 0%; }
@@ -678,7 +872,7 @@
 
   /* TOWN CARD */
   #town-card {
-    padding: 22px 18px;
+    padding: 14px 18px;
     background: linear-gradient(135deg, rgba(26,111,212,0.06), rgba(124,58,237,0.06));
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
@@ -686,20 +880,22 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    position: relative;
   }
   #town-center {
-    flex: 1;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
     text-align: center;
-    min-width: 0;
     pointer-events: none;
   }
-  #town-name { font-family: 'Playfair Display', 'Alef', serif; font-size: 5.2rem; font-weight: 900; line-height: 1; background: linear-gradient(90deg, #1a6fd4, #7c3aed); -webkit-background-clip: text; -webkit-text-fill-color: transparent; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #town-desc { font-size: 1.9rem; color: var(--muted); font-style: italic; font-weight: 700; margin-top: 4px; line-height: 1.3; }
+  #town-name { font-family: 'Playfair Display', 'Alef', serif; font-size: 2.4rem; font-weight: 900; line-height: 1; background: linear-gradient(90deg, #1a6fd4, #7c3aed); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  #town-desc { display: none; }
   /* Blurred location name shown during street-view preview phase */
   .blurred-location { filter: blur(8px); user-select: none; pointer-events: none; transition: filter 0.4s ease; }
   #town-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
   #mobile-confirm-modal { display: none; }
-  .btn {  border-radius: 50px; padding: 14px 32px; border: none; font-family: 'Source Serif 4', 'Alef', serif; font-size: 2rem; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+  .btn {  border-radius: 50px; padding: 7px 16px; border: none; font-family: 'Source Serif 4', 'Alef', serif; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.15s; }
   .btn-hint { background: transparent; border: 1px dashed #444; color: var(--muted); }
   .btn-hint:hover { border-color: var(--gold); color: var(--gold); }
   .btn-hint:disabled { opacity: 0.4; cursor: default; }
@@ -725,9 +921,8 @@
     50%       { box-shadow: 0 4px 22px rgba(124,58,237,0.55); }
   }
   #btn-play-again {
-    font-size: 2.1rem;
-    font-weight: 700;
-    padding: 20px 56px;
+    font-size: 1.05rem;
+    padding: 10px 28px;
     animation: gentlePulse 2.5s ease-in-out infinite;
   }
   #btn-play-again:hover { animation: none; }
@@ -977,8 +1172,34 @@
 
   #map { width:100%; height:100%; cursor: crosshair !important; }
   #map .leaflet-container { cursor: crosshair !important; }
+  /* Keyboard crosshair marker */
+  .kb-crosshair { background: none !important; border: none !important; }
+  .kb-crosshair div { width: 40px; height: 40px; position: relative; }
+  .kb-crosshair div::before,
+  .kb-crosshair div::after {
+    content: ''; position: absolute; background: #1a6fd4;
+    box-shadow: 0 0 4px #fff;
+  }
+  .kb-crosshair div::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
+  .kb-crosshair div::after  { height: 2px; width: 100%;  top:  50%; transform: translateY(-50%); }
+  #map:focus-visible { outline: 3px solid #1a6fd4; outline-offset: -3px; }
   .leaflet-control-attribution {
-    display: none !important;
+    font-size: 10px !important;
+    padding: 1px 5px !important;
+    line-height: 1.2 !important;
+    max-width: 40vw;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: max-width 0.3s ease;
+    opacity: 0.7;
+  }
+  .leaflet-control-attribution:hover {
+    max-width: 90vw;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    opacity: 1;
   }
   /* Tooltip */
   .city-label {
@@ -1057,13 +1278,13 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 20px;
-    padding: 40px 48px 36px;
-    max-width: 700px;
+    padding: 28px 32px 24px;
+    max-width: 420px;
     width: 100%;
     box-shadow: 0 12px 48px rgba(0,0,0,0.25);
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 10px;
     animation: factCardPop 0.25s cubic-bezier(.34,1.56,.64,1);
   }
   @keyframes factCardPop {
@@ -1072,95 +1293,31 @@
   }
   #fact-modal-title {
     font-family: 'Playfair Display', 'Alef', serif;
-    font-size: 2.8rem;
+    font-size: 1.4rem;
     font-weight: 900;
-    line-height: 1.2;
     background: linear-gradient(90deg, #1a6fd4, #7c3aed);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
   #fact-modal-body {
-    font-size: 2rem;
-    font-weight: 700;
+    font-size: 1rem;
     color: var(--text);
     line-height: 1.7;
   }
   #fact-modal-close {
-    align-self: center;
-    margin-top: 12px;
-    padding: 16px 52px;
+    align-self: flex-end;
+    margin-top: 6px;
+    padding: 7px 20px;
     border-radius: 50px;
-    border: 2px solid #c0392b;
-    background: #e74c3c;
-    color: #fff;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
     font-family: 'Source Serif 4', 'Alef', serif;
-    font-size: 2rem;
-    font-weight: 700;
+    font-size: 0.95rem;
     cursor: pointer;
     transition: background 0.15s;
   }
-  #fact-modal-close:hover { background: #c0392b; }
-
-  /* CONFIRM LOCATION POPUP */
-  #confirm-popup {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.55);
-    z-index: 99999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  #confirm-box {
-    background: #fff;
-    border-radius: 22px;
-    padding: 52px 64px 44px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 40px;
-    box-shadow: 0 12px 60px rgba(0,0,0,0.35);
-    min-width: 420px;
-    max-width: 90vw;
-  }
-  #confirm-text {
-    font-size: 3rem;
-    font-weight: 900;
-    color: #111;
-    margin: 0;
-    text-align: center;
-    direction: rtl;
-    unicode-bidi: bidi-override;
-    line-height: 1.2;
-    font-family: 'Alef', 'Heebo', sans-serif;
-    letter-spacing: 0.01em;
-  }
-  #confirm-buttons {
-    display: flex;
-    gap: 28px;
-    flex-direction: row-reverse;
-  }
-  #confirm-yes, #confirm-no {
-    font-size: 2rem;
-    font-weight: 800;
-    border: none;
-    border-radius: 14px;
-    padding: 18px 52px;
-    cursor: pointer;
-    font-family: 'Alef', 'Heebo', sans-serif;
-    transition: filter 0.15s, transform 0.1s;
-    min-width: 140px;
-  }
-  #confirm-yes {
-    background: #90ee90;
-    color: #1a4d1a;
-  }
-  #confirm-no {
-    background: #ffb3b3;
-    color: #6b0000;
-  }
-  #confirm-yes:hover { filter: brightness(0.93); transform: scale(1.03); }
-  #confirm-no:hover  { filter: brightness(0.93); transform: scale(1.03); }
+  #fact-modal-close:hover { background: var(--bg); }
 
   /* FEEDBACK TOAST */
   #feedback {
@@ -1218,24 +1375,29 @@
   /* OVERLAY */
   #overlay {
     position: fixed; inset: 0;
-    background: rgba(244,246,249,0.95);
-    backdrop-filter: blur(8px);
+    background: #f4f6f9;
     z-index: 8000;
+    overflow: hidden;
+  }
+  #overlay-scroll-area {
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
     display: flex; align-items: flex-start; justify-content: center;
     padding: 20px;
     padding-top: 80px;
-    overflow-y: auto;
+    z-index: 2;
   }
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 14px 28px 16px; max-width: 640px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 8px 40px rgba(0,0,0,0.08); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 14px 28px 16px; max-width: 440px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 8px 40px rgba(0,0,0,0.08); }
   .card h2 { font-family: 'Playfair Display', 'Alef', serif; font-size: 1.8rem; font-weight: 900; margin-bottom: 10px; background: linear-gradient(90deg, #1a6fd4, #7c3aed); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
   .card p { color: var(--muted); font-size: 1.05rem; line-height: 1.75; margin-bottom: 22px; }
-  .diff-row { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin: 6px 0; }
-  .diff-btn { padding: 14px 40px; border-radius: 50px; border: 2px solid var(--border); background: transparent; color: var(--muted); font-family: 'Source Serif 4', 'Alef', serif; font-size: 3.4rem; font-weight: 600; cursor: pointer; transition: all 0.15s; min-width: 180px; text-align: center; }
+  .diff-row { display: flex; gap: 8px; justify-content: center; }
+  .diff-btn { padding: 4px 14px; border-radius: 50px; border: 2px solid var(--border); background: transparent; color: var(--muted); font-family: 'Source Serif 4', 'Alef', serif; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.15s; min-width: 74px; text-align: center; }
   .diff-btn.active-easy   { border-color: var(--green); color: var(--green); background: rgba(26,127,55,0.08); }
   .diff-btn.active-medium { border-color: var(--gold);  color: var(--gold);  background: rgba(154,103,0,0.08); }
   .diff-btn.active-hard   { border-color: var(--red);   color: var(--red);   background: rgba(207,35,22,0.08); }
   .diff-btn.active-region { border-color: #1a6fd4; color: #1a6fd4; background: rgba(26,111,212,0.08); }
-  .diff-note { font-size: 3rem; font-weight: 700; color: var(--text); margin-bottom: 8px; line-height: 1.2; }
+  .diff-note { font-size: 0.78rem; color: #777; margin-bottom: 0; }
   #results-list { margin: 8px 0; width: 100%; text-align: start; }
   #results-list::-webkit-scrollbar { width: 4px; }
   #results-list::-webkit-scrollbar-thumb { background: #c8ccd2; border-radius: 99px; }
@@ -1247,8 +1409,8 @@
   .result-pts { font-weight: 700; }
   .result-pts.hit  { color: var(--green); }
   .result-pts.miss { color: var(--red); }
-  .btn-row { display: flex; flex-direction: column; align-items: center; gap: 16px; justify-content: center; margin-top: 6px; }
-  .btn-secondary { background: transparent; border: 2px solid rgba(255,255,255,0.2); color: var(--muted); border-radius: 50px; padding: 20px 56px; font-family: 'Source Serif 4', 'Alef', serif; font-size: 2rem; font-weight: 700; cursor: pointer; }
+  .btn-row { display: flex; gap: 10px; justify-content: center; margin-top: 6px; }
+  .btn-secondary { background: transparent; border: 1px solid rgba(255,255,255,0.12); color: var(--muted); border-radius: 50px; padding: 10px 20px; font-family: 'Source Serif 4', 'Alef', serif; font-size: 1rem; cursor: pointer; }
 
   /* ── SUN & CLOUDS ─────────────────────────────────────────────────── */
   @keyframes sunSpin {
@@ -1782,7 +1944,7 @@
   /* Region icon cards */
   .region-grid {
     display: flex;
-    gap: 24px;
+    gap: 12px;
     justify-content: center;
     flex-wrap: wrap;
     margin: 4px 0;
@@ -1796,19 +1958,19 @@
     transition: all 0.2s;
     padding: 4px;
     border-radius: 16px;
-    min-width: 148px;
+    min-width: 74px;
   }
   .region-card:hover {
     background: rgba(26,111,212,0.04);
   }
   .region-icon {
-    width: 104px;
-    height: 104px;
+    width: 52px;
+    height: 52px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 3rem;
+    font-size: 1.5rem;
     background: var(--bg);
     border: 2.5px solid transparent;
     transition: all 0.2s;
@@ -1820,7 +1982,7 @@
     box-shadow: 0 0 0 3px rgba(26,111,212,0.15), 0 2px 8px rgba(0,0,0,0.06);
   }
   .region-label {
-    font-size: 1.56rem;
+    font-size: 0.78rem;
     font-weight: 600;
     color: var(--muted);
     text-align: center;
@@ -1831,42 +1993,15 @@
     font-weight: 700;
   }
 
-  /* Fullscreen button */
-  #menu-fullscreen-btn {
-    position: fixed;
-    top: 10px;
-    left: 10px;
-    z-index: 9999;
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
-    border: 1.5px solid var(--border);
-    background: var(--bg);
-    color: var(--muted);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    opacity: 0.7;
-    transition: opacity 0.15s, background 0.15s;
-  }
-  #menu-fullscreen-btn:hover {
-    opacity: 1;
-    background: rgba(26,111,212,0.08);
-    border-color: #1a6fd4;
-    color: #1a6fd4;
-  }
-
   /* Start button */
   .btn-start-gold {
     background: linear-gradient(135deg, #1a6fd4, #1558b0);
     color: #fff;
     border: none;
     box-shadow: 0 4px 14px rgba(26,111,212,0.35);
-    font-size: 1.9rem;
-    padding: 16px 56px;
-    min-width: 360px;
+    font-size: 0.95rem;
+    padding: 8px 28px;
+    min-width: 180px;
     text-align: center;
   }
   .btn-start-gold:hover {
@@ -1905,9 +2040,14 @@
     display: block;
   }
 
+  /* DESKTOP – hide quiz title in topbar during post-game results panel */
+  @media (min-width: 769px) {
+    body.postgame #topbar h1 { visibility: hidden; }
+  }
+
   /* DESKTOP – enlarge menu card & contents */
   @media (min-width: 769px) {
-    #overlay {
+    #overlay-scroll-area {
       padding-top: 48px;
     }
     .card {
@@ -1935,34 +2075,34 @@
       gap: 10px;
     }
     .diff-btn {
-      padding: 10px 24px;
-      font-size: 2.4rem;
-      min-width: 130px;
+      padding: 4px 18px;
+      font-size: 0.92rem;
+      min-width: 82px;
     }
     .diff-note {
-      font-size: 2.4rem;
+      font-size: 0.82rem;
     }
     .region-grid {
-      gap: 16px;
+      gap: 8px;
       margin: 2px 0;
     }
     .region-card {
-      min-width: 152px;
+      min-width: 76px;
       gap: 2px;
       padding: 4px;
     }
     .region-icon {
-      width: 96px;
-      height: 96px;
-      font-size: 2.9rem;
+      width: 48px;
+      height: 48px;
+      font-size: 1.45rem;
     }
     .region-label {
-      font-size: 1.64rem;
+      font-size: 0.82rem;
     }
     .btn-start-gold {
-      font-size: 2rem;
-      padding: 16px 60px;
-      min-width: 400px;
+      font-size: 1rem;
+      padding: 8px 30px;
+      min-width: 200px;
     }
     .btn-learn {
       font-size: 0.92rem;
@@ -1975,8 +2115,8 @@
       margin-bottom: 0;
     }
     #menu-desc {
-      font-size: 1rem !important;
-      line-height: 1.4 !important;
+      font-size: 0.92rem !important;
+      line-height: 1.3 !important;
     }
     #lbl-region {
       font-size: 0.85rem !important;
@@ -1985,6 +2125,7 @@
 
   /* MOBILE RESPONSIVE STYLES */
   @media (max-width: 768px) {
+    .leaflet-control-attribution { max-width: 30vw; font-size: 9px !important; }
     /* Scoreboard panel — popup below the results bar on mobile */
     #scoreboard-panel {
       top: 68px !important; left: 0 !important; right: 0 !important;
@@ -2013,14 +2154,10 @@
     #topbar h1 {
       display: none !important;
     }
-    /* Hide desktop town-center on mobile — mobile-topbar-town handles it */
-    #town-center {
-      display: none !important;
-    }
     
     /* Reorganize topbar for mobile — hud left, town center, ☰ right */
     #topbar {
-      padding: 16px 12px;
+      padding: 8px 12px;
       justify-content: space-between;
       align-items: center;
       gap: 8px;
@@ -2200,32 +2337,29 @@
       height: 32px !important;
     }
     
-    /* HUD blocks — scaled for mobile */
+    /* HUD blocks smaller */
     .hud-block {
-      min-width: 70px;
+      min-width: 44px;
       text-align: center;
-      padding: 4px 14px 8px;
+      padding: 2px 6px;
       background: rgba(26,111,212,0.06);
-      border-radius: 10px;
+      border-radius: 8px;
       border: 1px solid rgba(26,111,212,0.12);
     }
     .hud-label {
-      font-size: 0.85rem;
+      font-size: 0.7rem;
     }
     .hud-value {
-      font-size: 2rem;
+      font-size: 1.3rem;
     }
     
     /* Town card adjustments */
     #town-card {
-      padding: 18px 12px;
+      padding: 8px 12px;
       font-size: 0.9rem;
     }
     #town-name {
-      font-size: 3.6rem;
-    }
-    #town-desc {
-      font-size: 1.7rem;
+      font-size: 1.3rem;
     }
     #town-actions {
       gap: 6px;
@@ -2238,12 +2372,12 @@
       min-height: 44px; /* Apple's minimum touch target */
     }
     .btn-hint {
-      padding: 16px 28px;
-      font-size: 1.7rem;
+      padding: 8px 14px;
+      font-size: 0.85rem;
     }
     #btn-back {
-      padding: 16px 28px;
-      font-size: 1.7rem;
+      padding: 8px 14px;
+      font-size: 0.85rem;
     }
     
     /* Menu card smaller */
@@ -2278,23 +2412,23 @@
       font-size: 0.78rem;
     }
 
-    /* Region icons on mobile */
+    /* Region icons smaller on mobile */
     .region-icon {
-      width: 92px;
-      height: 92px;
-      font-size: 2.6rem;
+      width: 46px;
+      height: 46px;
+      font-size: 1.3rem;
     }
     .region-grid {
-      gap: 16px;
+      gap: 8px;
     }
     .region-card {
-      min-width: 120px;
+      min-width: 60px;
     }
 
-    /* Difficulty buttons */
+    /* Difficulty buttons more compact */
     .diff-btn {
-      padding: 8px 18px;
-      font-size: 2rem;
+      padding: 6px 13px;
+      font-size: 0.85rem;
     }
 
     /* Tighten diff-row gaps */
@@ -2303,10 +2437,10 @@
       margin-bottom: 4px;
     }
 
-    /* Diff note */
+    /* Diff note smaller */
     .diff-note {
-      font-size: 2rem;
-      margin-bottom: 12px;
+      font-size: 0.82rem;
+      margin-bottom: 10px;
     }
 
     /* Menu mode title */
@@ -2316,15 +2450,12 @@
 
     /* Start button tighter */
     #start-btn {
-      padding: 16px 56px !important;
-      font-size: 1.9rem !important;
-      min-width: unset !important;
-      width: 100%;
-      box-sizing: border-box;
+      padding: 10px 32px !important;
+      font-size: 1rem !important;
     }
 
     /* Overlay on mobile */
-    #overlay {
+    #overlay-scroll-area {
       padding-top: 70px;
       align-items: flex-start;
     }
@@ -2345,8 +2476,8 @@
 
     /* Restore menu description text to original size on mobile */
     #menu-desc {
-      font-size: 1rem !important;
-      line-height: 1.4 !important;
+      font-size: 0.9rem !important;
+      line-height: 1.5 !important;
     }
 
     /* Results panel — compact top bar on mobile */
@@ -2402,19 +2533,21 @@
       min-width: 0;
     }
     .btn-row {
-      flex-direction: column !important;
-      align-items: center !important;
-      gap: 12px !important;
+      flex-wrap: nowrap !important;
+      margin-top: 0 !important;
+      gap: 6px !important;
       flex-shrink: 0 !important;
     }
     #btn-play-again {
-      font-size: 1.3rem !important;
-      padding: 14px 32px !important;
+      font-size: 0.85rem !important;
+      padding: 8px 14px !important;
       animation: none !important;
+      white-space: nowrap;
     }
     #btn-menu {
-      font-size: 1.3rem !important;
-      padding: 14px 32px !important;
+      font-size: 0.85rem !important;
+      padding: 8px 14px !important;
+      white-space: nowrap;
     }
     
     /* Streak banner smaller */
@@ -2452,10 +2585,10 @@
       padding: 20px;
     }
     #fact-modal-title {
-      font-size: 2.2rem;
+      font-size: 1.5rem;
     }
     #fact-modal-body {
-      font-size: 1.6rem;
+      font-size: 0.95rem;
     }
   }
   
@@ -2470,14 +2603,13 @@
     }
     
     .hud-block {
-      min-width: 56px;
-      padding: 3px 10px 6px;
+      min-width: 60px;
     }
     .hud-label {
-      font-size: 0.75rem;
+      font-size: 0.65rem;
     }
     .hud-value {
-      font-size: 1.6rem;
+      font-size: 1.1rem;
     }
     #mobile-topbar-town .mob-town-text {
       font-size: 0.9rem;
@@ -2489,12 +2621,8 @@
     #mobile-topbar-town .mob-town-text.mob-size-xs { font-size: 0.75rem; }
     
     #town-name {
-      font-size: 3.0rem;
+      font-size: 1.1rem;
     }
-    #town-desc {
-      font-size: 1.6rem;
-    }
-
     .card h2 {
       font-size: 1.3rem;
     }
@@ -2514,12 +2642,12 @@
       font-size: 0.72rem;
     }
     .region-icon {
-      width: 84px;
-      height: 84px;
-      font-size: 2.4rem;
+      width: 42px;
+      height: 42px;
+      font-size: 1.2rem;
     }
     .region-label {
-      font-size: 1.4rem;
+      font-size: 0.7rem;
     }
     .menu-mode-title {
       font-size: 1.2rem;
@@ -2661,6 +2789,170 @@
     100% { background-position: 300% 50%; }
   }
 
+  /* ── Quiz Progress Popup ─────────────────────────────────────────────────── */
+  #quiz-progress-popup {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(0,0,0,0.62);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    align-items: center;
+    justify-content: center;
+  }
+  #quiz-progress-popup.show { display: flex; }
+  #quiz-progress-card {
+    background: var(--surface);
+    border-radius: 24px;
+    padding: 0 22px 22px;
+    width: min(360px, 92vw);
+    box-shadow: 0 8px 40px rgba(26,111,212,0.15), 0 20px 60px rgba(0,0,0,0.28);
+    animation: recordCardEntry 0.45s cubic-bezier(.34,1.3,.64,1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow: hidden;
+  }
+  #qp-accent-bar {
+    height: 5px;
+    background: linear-gradient(90deg, #1a6fd4 0%, #7c3aed 50%, #22c55e 100%);
+    margin: 0 -22px 18px;
+    width: calc(100% + 44px);
+    flex-shrink: 0;
+  }
+  #qp-auth { width: 100%; display: flex; flex-direction: column; align-items: center; }
+  #qp-level-section {
+    width: 100%; text-align: center; margin: 8px 0 12px;
+    background: linear-gradient(135deg, #1a6fd4 0%, #7c3aed 65%, #a855f7 100%);
+    border-radius: 18px;
+    padding: 18px 18px 16px;
+    box-shadow: 0 6px 28px rgba(124,58,237,0.32), 0 1px 4px rgba(0,0,0,0.1);
+    position: relative; overflow: hidden;
+  }
+  #qp-level-section::before {
+    content: ''; position: absolute;
+    top: -35px; right: -28px;
+    width: 110px; height: 110px; border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+  }
+  #qp-level-section::after {
+    content: ''; position: absolute;
+    bottom: -25px; left: -22px;
+    width: 90px; height: 90px; border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+  }
+  #qp-level-title {
+    font-family: 'Playfair Display','Alef',serif;
+    color: white; -webkit-text-fill-color: white; background: none;
+    margin-bottom: 4px; line-height: 1; position: relative; z-index: 1;
+  }
+  .qp-level-word {
+    display: block; font-size: 0.9rem; font-weight: 800;
+    letter-spacing: 4px; text-transform: uppercase;
+    color: rgba(255,255,255,0.75); margin-bottom: 2px;
+  }
+  .qp-level-num {
+    display: block; font-size: 3.6rem; font-weight: 900; line-height: 1;
+    text-shadow: 0 3px 16px rgba(0,0,0,0.22);
+  }
+  #qp-level-name {
+    font-size: 1.05rem; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; color: rgba(255,255,255,0.92);
+    margin-bottom: 14px; position: relative; z-index: 1;
+  }
+  #qp-progress-wrap { width: 100%; position: relative; z-index: 1; }
+  #qp-progress-track {
+    width: 100%; height: 10px;
+    background: rgba(255,255,255,0.18);
+    border-radius: 99px; overflow: hidden; position: relative;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.18);
+    border: 1px solid rgba(255,255,255,0.28);
+  }
+  #qp-progress-fill {
+    height: 100%; border-radius: 99px;
+    background: linear-gradient(90deg, #15803d, #22c55e, #4ade80, #22c55e, #15803d);
+    background-size: 300% 100%;
+    animation: lrBarShimmer 2.5s linear infinite;
+    position: relative;
+    transition: width 1.2s cubic-bezier(.34,1.2,.64,1);
+    min-width: 0;
+    box-shadow: 0 0 18px rgba(34,197,94,0.55), 0 0 6px rgba(74,222,128,0.35), inset 0 1px 2px rgba(255,255,255,0.35);
+  }
+  #qp-diff-tip {
+    display: none; width: 100%; font-size: 0.8rem; text-align: center;
+    padding: 6px 10px; margin-top: 8px; border-radius: 8px;
+    background: rgba(154,103,0,0.1); color: #7a5500;
+    border: 1px solid rgba(154,103,0,0.25);
+  }
+  #qp-diff-tip.show { display: block; }
+  #qp-list {
+    width: 100%; max-height: 200px; overflow-y: auto;
+    margin-top: 10px; border-radius: 10px; border: 1px solid var(--border);
+  }
+  #qp-list::-webkit-scrollbar { width: 4px; }
+  #qp-list::-webkit-scrollbar-thumb { background: #c8ccd2; border-radius: 99px; }
+  .qp-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 10px; font-size: 0.87rem;
+    border-bottom: 1px solid var(--border); gap: 8px;
+  }
+  .qp-row:last-child { border-bottom: none; }
+  .qp-town-name {
+    flex: 1; font-weight: 600; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .qp-fam-wrap { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+  .qp-fam-dots { display: flex; gap: 3px; }
+  .qp-fam-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    border: 1.5px solid var(--muted); background: transparent;
+  }
+  .qp-fam-dot.dot-yellow { background: #f59e0b; border-color: #f59e0b; }
+  .qp-fam-dot.dot-green  { background: #16a34a; border-color: #16a34a; }
+  .qp-region { font-size: 0.72rem; font-weight: 600; color: var(--muted); flex-shrink: 0; }
+  /* guest state */
+  #qp-guest {
+    width: 100%; display: none; flex-direction: column;
+    align-items: center; text-align: center;
+  }
+  .qp-guest-icon {
+    line-height: 1; margin-bottom: 10px;
+    display: flex; justify-content: center;
+  }
+  .qp-cool-pin {
+    filter: drop-shadow(0 4px 8px rgba(180,30,30,0.45)) drop-shadow(0 1px 2px rgba(0,0,0,0.25));
+    animation: qpPinBounce 2s ease-in-out infinite;
+    display: block;
+  }
+  @keyframes qpPinBounce {
+    0%, 100% { transform: translateY(0) scale(1); }
+    35%       { transform: translateY(-10px) scale(1.07); }
+    65%       { transform: translateY(-4px) scale(1.03); }
+  }
+  #qp-guest-title {
+    font-size: 1rem; font-weight: 800; color: var(--text);
+    margin-bottom: 14px; line-height: 1.45;
+  }
+  #qp-guest-progress-wrap { width: 100%; margin-bottom: 18px; }
+  #qp-guest-progress-track {
+    width: 100%; height: 10px; background: var(--border);
+    border-radius: 99px; overflow: hidden; position: relative;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.09);
+  }
+  #qp-guest-progress-fill {
+    position: absolute; top: 0; bottom: 0; left: 0; width: 30%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, rgba(26,111,212,0.4), #1a6fd4, #7c3aed, rgba(124,58,237,0.4));
+    box-shadow: 0 0 14px rgba(26,111,212,0.45), inset 0 1px 2px rgba(255,255,255,0.3);
+    animation: qpGuestSweep 2s ease-in-out infinite;
+  }
+  @keyframes qpGuestSweep {
+    0%   { left: -30%; opacity: 0.6; }
+    50%  { opacity: 1; }
+    100% { left: 100%; opacity: 0.6; }
+  }
+
   /* ── Level-Up Popup ────────────────────────────────────────────────────── */
   #lr-levelup-overlay {
     display: none;
@@ -2685,8 +2977,8 @@
     border-radius: 24px;
     padding: 32px 28px 28px;
     text-align: center;
-    max-width: 340px;
-    width: 90%;
+    max-width: 370px;
+    width: 92%;
     box-shadow: 0 8px 60px rgba(0,0,0,0.35);
     animation: lrLevelCardPop 0.6s cubic-bezier(.34,1.56,.64,1);
     overflow: hidden;
@@ -2711,15 +3003,44 @@
     60%  { opacity: 1; transform: scale(1.08) rotate(2deg); }
     100% { opacity: 1; transform: scale(1) rotate(0deg); }
   }
-  .lr-levelup-icon {
-    font-size: 4rem;
+  .lr-levelup-icon-wrap {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
     margin-bottom: 8px;
-    animation: lrLevelIconBounce 1s ease infinite;
+    min-height: 4.5rem;
   }
-  @keyframes lrLevelIconBounce {
-    0%, 100% { transform: translateY(0) scale(1); }
-    30%      { transform: translateY(-14px) scale(1.2); }
-    50%      { transform: translateY(-6px) scale(1.05); }
+  .lr-levelup-emoji {
+    font-size: 3rem;
+    display: inline-block;
+    line-height: 1;
+  }
+  .lr-emoji-left {
+    animation: lrEmojiEnterLeft 0.6s cubic-bezier(.34,1.56,.64,1) both,
+               lrEmojiFloatLeft 2.5s ease-in-out 0.6s infinite;
+  }
+  .lr-emoji-right {
+    animation: lrEmojiEnterRight 0.6s cubic-bezier(.34,1.56,.64,1) 0.15s both,
+               lrEmojiFloatRight 2.5s ease-in-out 0.75s infinite;
+  }
+  @keyframes lrEmojiEnterLeft {
+    0%   { opacity: 0; transform: translateX(-40px) scale(0.3) rotate(-20deg); }
+    100% { opacity: 1; transform: translateX(0) scale(1) rotate(0deg); }
+  }
+  @keyframes lrEmojiEnterRight {
+    0%   { opacity: 0; transform: translateX(40px) scale(0.3) rotate(20deg); }
+    100% { opacity: 1; transform: translateX(0) scale(1) rotate(0deg); }
+  }
+  @keyframes lrEmojiFloatLeft {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    25%      { transform: translateY(-8px) rotate(-6deg); }
+    75%      { transform: translateY(4px) rotate(3deg); }
+  }
+  @keyframes lrEmojiFloatRight {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    25%      { transform: translateY(4px) rotate(6deg); }
+    75%      { transform: translateY(-8px) rotate(-3deg); }
   }
   .lr-levelup-title {
     font-family: 'Playfair Display', 'Alef', serif;
@@ -2759,10 +3080,11 @@
     50%      { transform: scale(1.1); filter: brightness(1.3); }
   }
   .lr-levelup-name {
-    font-size: 1.1rem;
+    font-size: 1.15rem;
     font-weight: 700;
     color: var(--text);
     margin-bottom: 4px;
+    white-space: nowrap;
   }
   .lr-levelup-stars {
     font-size: 1.4rem;
@@ -2773,6 +3095,13 @@
   @keyframes lrLevelStarsSpin {
     0%, 100% { transform: rotateY(0deg); }
     50%      { transform: rotateY(360deg); }
+  }
+  .lr-levelup-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    margin-top: 14px;
   }
   #lr-levelup-close {
     display: inline-block;
@@ -2787,10 +3116,37 @@
     cursor: pointer;
     transition: all 0.2s;
     box-shadow: 0 4px 20px rgba(34,197,94,0.4);
+    width: 100%;
   }
   #lr-levelup-close:hover {
     transform: translateY(-2px) scale(1.04);
     box-shadow: 0 6px 28px rgba(34,197,94,0.5);
+  }
+  #lr-levelup-wa {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 11px 24px;
+    border-radius: 14px;
+    border: none;
+    background: #25D366;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+    font-family: 'Source Serif 4', 'Alef', serif;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 16px rgba(37,211,102,0.35);
+    width: 100%;
+  }
+  #lr-levelup-wa:hover {
+    transform: translateY(-2px) scale(1.04);
+    box-shadow: 0 6px 24px rgba(37,211,102,0.5);
+    background: #20bd5a;
+  }
+  #lr-levelup-wa svg {
+    flex-shrink: 0;
   }
   .lr-levelup-particles {
     position: absolute;
@@ -2867,9 +3223,88 @@
     pointer-events: none;
     direction: rtl;
   }
+
+  /* ── ACCESSIBILITY ─────────────────────────────────────────────────────── */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    white-space: nowrap;
+    border: 0;
+  }
+  #accessibility-footer-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+    font-size: 0.95rem;
+    color: #000;
+  }
+  #accessibility-footer-link {
+    color: #000;
+    text-decoration: underline;
+    font-size: inherit;
+  }
+  #accessibility-contact-label {
+    color: #000;
+    text-decoration: none;
+  }
+  #accessibility-footer-email {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: #1a6fd4;
+    text-decoration: none;
+    font-size: inherit;
+    font-family: inherit;
+  }
+  #accessibility-footer-email:hover { text-decoration: underline; }
+
+  .skip-link {
+    position: absolute;
+    top: -100%;
+    left: 0;
+    background: #1a6fd4;
+    color: #fff;
+    padding: 8px 16px;
+    z-index: 99999;
+    text-decoration: none;
+    font-weight: bold;
+    border-radius: 0 0 4px 0;
+  }
+  .skip-link:focus { top: 0; }
+
+  :focus-visible {
+    outline: 3px solid #1a6fd4;
+    outline-offset: 2px;
+  }
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible {
+    outline: 3px solid #1a6fd4;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 </style>
 </head>
 <body>
+<a href="#main-content" class="skip-link" id="skip-nav">דלג לתוכן הראשי / Skip to main content</a>
 
 <div id="topbar">
   <h1>
@@ -2884,19 +3319,16 @@
       <polygon points="19.0,12.5 24.6,22.2 13.4,22.2" fill="none" stroke="#0038b8" stroke-width="1.6"/>
       <polygon points="19.0,25.5 13.4,15.8 24.6,15.8" fill="none" stroke="#0038b8" stroke-width="1.6"/>
     </svg>
+    <span id="title-text">Gilly's Israel Quiz</span>
   </h1>
-  <div id="town-center">
-    <div id="town-name">—</div>
-    <div id="town-desc">בחר/י רמת קושי והתחל/י את המשחק</div>
-  </div>
   <div id="hud">
     <div class="hud-block">
       <span class="hud-label" id="lbl-round">Round</span>
-      <span class="hud-value" id="round-val">1/—</span>
+      <span class="hud-value" id="round-val" aria-live="polite" aria-atomic="true">1/—</span>
     </div>
     <div class="hud-block">
       <span class="hud-label" id="lbl-score">Score</span>
-      <span class="hud-value" id="score-val" style="color:#1a6fd4">0</span>
+      <span class="hud-value" id="score-val" aria-live="polite" aria-atomic="true" style="color:#1a6fd4">0</span>
     </div>
   </div>
   <div id="learning-hud">
@@ -2929,8 +3361,12 @@
 </div>
 
 <div id="town-card">
-  <div style="min-width:260px">
+  <div style="min-width:160px">
     <button class="btn btn-hint" id="btn-back" onclick="showMenu()" style="display:none">← תפריט</button>
+  </div>
+  <div id="town-center">
+    <div id="town-name">—</div>
+    <div id="town-desc"></div>
   </div>
   <div id="town-actions">
     <button class="btn btn-hint" id="btn-hint" onclick="useHint()">💡 Hint · 3 left</button>
@@ -2939,17 +3375,18 @@
 </div>
 
 <div style="flex:1;position:relative;overflow:hidden;">
-  <div id="streak-banner"></div>
+  <div id="streak-banner" aria-live="polite" aria-atomic="true"></div>
   <div id="easy-mode-banner"></div>
-  <div id="pts-popup"></div>
-  <div id="map" style="position:absolute;inset:0;"></div>
+  <div id="pts-popup" aria-live="assertive" aria-atomic="true"></div>
+  <span id="main-content" aria-hidden="true" style="position:absolute;top:0;left:0;"></span>
+  <div id="map" tabindex="0" role="application" aria-label="מפת ישראל האינטראקטיבית / Interactive map of Israel" style="position:absolute;inset:0;"></div>
 </div>
 <div id="feedback"></div>
 
 <!-- SHARE POPUP -->
-<div id="share-popup" onclick="if(event.target===this)closeSharePopup()">
+<div id="share-popup" role="dialog" aria-modal="true" aria-labelledby="share-card-title" onclick="if(event.target===this)closeSharePopup()">
   <div id="share-card">
-    <button id="share-popup-close" onclick="closeSharePopup()">✕</button>
+    <button id="share-popup-close" onclick="closeSharePopup()" aria-label="סגור / Close">✕</button>
     <div id="share-card-title">Share</div>
     <div class="share-options">
       <button class="share-option share-option-whatsapp" onclick="shareWhatsApp()">
@@ -2996,7 +3433,7 @@
 </div>
 
 <!-- CHALLENGE INTRO POPUP -->
-<div id="challenge-intro">
+<div id="challenge-intro" role="dialog" aria-modal="true" aria-labelledby="challenge-intro-heading">
   <div id="challenge-intro-card">
     <div id="challenge-intro-logo-wrap">
       <img id="challenge-intro-logo" src="logo_head.png" alt="Gilly"/>
@@ -3011,9 +3448,9 @@
 </div>
 
 <!-- DAILY CHALLENGE INTRO POPUP -->
-<div id="daily-challenge-intro">
+<div id="daily-challenge-intro" role="dialog" aria-modal="true" aria-labelledby="dci-title">
   <div id="daily-challenge-intro-card">
-    <button id="dci-close-btn" onclick="cancelDailyChallengeIntro()">✕</button>
+    <button id="dci-close-btn" onclick="cancelDailyChallengeIntro()" aria-label="סגור / Close">✕</button>
     <div id="dci-icon">⚡</div>
     <div id="dci-title">אתגר יומי</div>
     <div id="dci-desc-box">
@@ -3052,22 +3489,12 @@
 </div>
 
 <!-- FACT MODAL (hidden by default) -->
-<div id="fact-modal" style="display:none">
+<div id="fact-modal" role="dialog" aria-modal="true" aria-labelledby="fact-modal-title" style="display:none">
   <div id="fact-modal-card">
     <div id="fact-modal-title"></div>
     <div id="fact-modal-body"></div>
+    <div id="fact-login-prompt" style="display:none;font-size:1rem;color:var(--text)"><a id="fact-login-link" style="cursor:pointer;color:#1a6fd4;text-decoration:underline" onclick="openLoginModalForFact()">Log in</a><span id="fact-login-text"> for fun facts</span></div>
     <button id="fact-modal-close" onclick="closeFactModal()">סגור</button>
-  </div>
-</div>
-
-<!-- Confirm-location popup -->
-<div id="confirm-popup" style="display:none">
-  <div id="confirm-box">
-    <p id="confirm-text" dir="rtl">אתה בטוח?</p>
-    <div id="confirm-buttons">
-      <button id="confirm-yes" onclick="confirmLocation()">כן</button>
-      <button id="confirm-no" onclick="cancelLocation()">לא</button>
-    </div>
   </div>
 </div>
 
@@ -3076,11 +3503,15 @@
   <div class="overlay-topbar">
     <div class="overlay-topbar-left">
       <span class="overlay-topbar-title" id="overlay-title-text">Gilly's Israel Quiz</span>
+      <button class="overlay-lang-btn" id="lang-toggle" onclick="toggleLang()" aria-label="שינוי שפה / Change language">🌐 English</button>
     </div>
     <div class="overlay-topbar-right">
-
+      <button id="share-btn" onclick="openSharePopup()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        <span id="share-btn-label">Share</span>
+      </button>
       <div id="auth-wrap" style="position:relative;flex-shrink:0;">
-        <button id="auth-btn" onclick="handleAuthBtnClick()">
+        <button id="auth-btn" onclick="handleAuthBtnClick()" aria-label="התחברות / Log in" aria-expanded="false" aria-haspopup="true">
           <span class="auth-avatar" id="auth-avatar">👤</span>
           <span id="auth-label">התחברות</span>
         </button>
@@ -3094,10 +3525,7 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             <span id="auth-dd-settings">Settings</span>
           </button>
-          <button class="auth-dropdown-item" onclick="switchAccount()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            <span id="auth-dd-switch">Switch account</span>
-          </button>
+
           <button class="auth-dropdown-item auth-dropdown-signout" onclick="signOutUser()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
             <span id="auth-dd-signout">Sign out</span>
@@ -3119,11 +3547,8 @@
   <!-- Background planes -->
   <div class="planes-layer" id="planes-layer"></div>
 
-  <!-- Fullscreen button -->
-  <button id="menu-fullscreen-btn" onclick="toggleFullscreen()" title="Fullscreen">
-    <svg id="fs-icon-enter" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-    <svg id="fs-icon-exit" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/></svg>
-  </button>
+  <!-- Scrollable content area (keeps clouds/planes outside the scroll container) -->
+  <div id="overlay-scroll-area">
 
   <!-- Main menu card -->
   <div class="card" id="menu-card" style="z-index:2;background:transparent;border:none;box-shadow:none;">
@@ -3131,37 +3556,47 @@
       <img src="logo_nb.png" alt="Gilly's Israel Quiz" class="menu-logo" id="menu-logo">
       <div class="menu-mode-title" id="menu-mode-title">מצב משחק</div>
     </div>
-
+    <button id="daily-btn" class="btn btn-learn" onclick="startDailyChallenge()">⚡ אתגר יומי</button>
+    <p id="menu-desc" style="margin:0;font-size:0.88rem;line-height:1.35;text-align:center;">
+      מצא/י את המיקום על המפה
+    </p>
     <div class="diff-row" id="diff-row">
-      <button class="diff-btn active-easy" id="d-easy"   onclick="setDiff('easy')">קל</button>
-      <button class="diff-btn" id="d-medium" onclick="setDiff('medium')">בינוני</button>
+      <button class="diff-btn" id="d-easy"   onclick="setDiff('easy')">קל</button>
+      <button class="diff-btn active-medium" id="d-medium" onclick="setDiff('medium')">בינוני</button>
       <button class="diff-btn" id="d-hard"   onclick="setDiff('hard')">קשה</button>
     </div>
     <div class="diff-note" id="diff-note">ערים ועיירות</div>
     <div style="width:100%;border-top:1px solid var(--border);margin:4px 0 2px"></div>
+    <div style="font-size:0.82rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);font-weight:600" id="lbl-region">אזור</div>
     <div class="region-grid">
-      <div class="region-card active" id="r-all" onclick="setRegion('all')">
+      <div class="region-card active" id="r-all" role="button" tabindex="0" onclick="setRegion('all')" onkeydown="handleRegionKey(event,'all')">
         <div class="region-icon"><svg width="32" height="32" viewBox="0 0 38 38" style="border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.15);" xmlns="http://www.w3.org/2000/svg"><rect width="38" height="38" fill="#fff"/><rect y="5" width="38" height="6.5" fill="#0038b8"/><rect y="26.5" width="38" height="6.5" fill="#0038b8"/><polygon points="19,11.5 25.2,22.2 12.8,22.2" fill="none" stroke="#0038b8" stroke-width="1.8"/><polygon points="19,26.5 12.8,15.8 25.2,15.8" fill="none" stroke="#0038b8" stroke-width="1.8"/></svg></div>
         <div class="region-label" id="r-all-label">הכל</div>
       </div>
-      <div class="region-card" id="r-north" onclick="setRegion('north')">
+      <div class="region-card" id="r-north" role="button" tabindex="0" onclick="setRegion('north')" onkeydown="handleRegionKey(event,'north')">
         <div class="region-icon">🏔️</div>
         <div class="region-label" id="r-north-label">צפון</div>
       </div>
-      <div class="region-card" id="r-center" onclick="setRegion('center')">
+      <div class="region-card" id="r-center" role="button" tabindex="0" onclick="setRegion('center')" onkeydown="handleRegionKey(event,'center')">
         <div class="region-icon">🏙️</div>
         <div class="region-label" id="r-center-label">מרכז</div>
       </div>
-      <div class="region-card" id="r-south" onclick="setRegion('south')">
+      <div class="region-card" id="r-south" role="button" tabindex="0" onclick="setRegion('south')" onkeydown="handleRegionKey(event,'south')">
         <div class="region-icon">🏜️</div>
         <div class="region-label" id="r-south-label">דרום</div>
       </div>
     </div>
     <button id="start-btn" class="btn btn-start-gold" onclick="startGame()">← התחל משחק</button>
-
+    <button id="learn-btn" class="btn btn-learn" onclick="startLearning()">🗺️ מצב למידה</button>
+    <div id="accessibility-footer-bar" dir="rtl">
+      <a href="accessibility.html" id="accessibility-footer-link">הצהרת נגישות</a>
+      <span id="accessibility-contact-label" dir="rtl">צור קשר:</span>
+      <button id="accessibility-footer-email" onclick="copyAccessibilityEmail()">gillyisraelquiz@gmail.com</button>
+    </div>
   </div>
 
-</div>
+</div><!-- /#overlay-scroll-area -->
+</div><!-- /#overlay -->
 
 <div id="results-panel">
   <div id="results-card">
@@ -3188,20 +3623,68 @@
     <div id="sb-header">
       <h3 id="scoreboard-title"><span style="-webkit-text-fill-color:initial;background:none">🏆</span> Leaderboard</h3>
       <div id="sb-header-actions">
+        <button id="sb-share-btn" onclick="shareLeaderboardScore()" aria-label="שתף ניקוד / Share score" style="display:none"></button>
         <button id="sb-top5-btn" onclick="toggleTop5View()">▲ Top 10</button>
-        <button id="sb-close-btn" onclick="document.getElementById('scoreboard-panel').classList.remove('show')">✕</button>
+        <button id="sb-close-btn" onclick="document.getElementById('scoreboard-panel').classList.remove('show')" aria-label="סגור לוח תוצאות / Close scoreboard">✕</button>
       </div>
     </div>
     <div id="scoreboard-list"></div>
     <div id="scoreboard-guest" style="display:none">
-      <a style="cursor:pointer;color:#1a6fd4;text-decoration:underline" onclick="openLoginModal()" id="sb-signin-link">Sign in</a>
-      <span id="sb-signin-text"> to see the leaderboard</span>
+      <div class="sb-guest-blurred" id="sb-guest-blur"></div>
+      <div class="sb-guest-overlay">
+        <div class="sb-guest-lock">🔮</div>
+        <div class="sb-guest-hook" id="sb-guest-hook">Where do you rank?</div>
+        <div class="sb-guest-sub" id="sb-guest-sub">Sign in to reveal your place.</div>
+        <button class="sb-guest-cta" onclick="openLoginModal()" id="sb-signin-link">Sign in →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── QUIZ PROGRESS POPUP ────────────────────────────────────────────── -->
+<div id="quiz-progress-popup" role="dialog" aria-modal="true">
+  <div id="quiz-progress-card">
+    <div id="qp-accent-bar"></div>
+    <!-- Logged-in view -->
+    <div id="qp-auth">
+      <div class="lr-levelup-icon-wrap" id="qp-emoji-wrap" style="margin-bottom:2px;min-height:3rem">
+        <span class="lr-levelup-emoji" id="qp-emoji-left" style="font-size:2.2rem">🗺️</span>
+        <span class="lr-levelup-emoji" id="qp-emoji-right" style="font-size:2.2rem">🗺️</span>
+      </div>
+      <div id="qp-nickname" style="font-size:1rem;font-weight:800;text-align:center;letter-spacing:0.3px;color:var(--text);margin-bottom:2px"></div>
+      <div id="qp-level-section">
+        <div id="qp-level-title"></div>
+        <div id="qp-level-name"></div>
+        <div id="qp-progress-wrap">
+          <div id="qp-progress-track">
+            <div id="qp-progress-fill" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+      <div id="qp-diff-tip"></div>
+      <div id="qp-list"></div>
+      <div style="display:flex;flex-direction:column;gap:8px;width:100%;margin-top:12px">
+        <button class="btn btn-primary" id="qp-scores-btn" onclick="closeQuizProgress()" style="width:100%">🏆 View Scores</button>
+        <button class="btn-secondary" id="qp-menu-btn" onclick="showMenu()" style="width:100%;text-align:center;padding:9px 16px">← Menu</button>
+      </div>
+    </div>
+    <!-- Guest view -->
+    <div id="qp-guest">
+      <div class="qp-guest-icon"><svg class="qp-cool-pin" viewBox="0 0 40 52" width="52" height="64" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="qpPinG1" cx="38%" cy="30%" r="65%"><stop offset="0%" stop-color="#ff8080"/><stop offset="60%" stop-color="#e53935"/><stop offset="100%" stop-color="#b71c1c"/></radialGradient></defs><path d="M20 1C9.5 1 1 9.5 1 20c0 14.5 19 38 19 38s19-23.5 19-38C39 9.5 30.5 1 20 1z" fill="url(#qpPinG1)"/><circle cx="20" cy="20" r="7.5" fill="white" opacity="0.9"/></svg></div>
+      <div id="qp-guest-title"></div>
+      <div id="qp-guest-progress-wrap">
+        <div id="qp-guest-progress-track">
+          <div id="qp-guest-progress-fill"></div>
+        </div>
+      </div>
+      <button class="sb-guest-cta" onclick="openLoginModal()" id="qp-signin-btn" style="width:100%;justify-content:center"></button>
+      <button class="btn-secondary" onclick="closeQuizProgress()" id="qp-guest-skip-btn" style="width:100%;text-align:center;padding:8px 16px;margin-top:8px"></button>
     </div>
   </div>
 </div>
 
 <!-- ── DAILY CHALLENGE PERCENTILE POPUP ──────────────────────────────── -->
-<div id="daily-percentile-popup">
+<div id="daily-percentile-popup" role="dialog" aria-modal="true" aria-labelledby="dp-title">
   <div id="daily-percentile-card">
     <div id="dp-accent-bar"></div>
     <div id="dp-title"><span class="dp-emoji">📅 </span>Daily Challenge</div>
@@ -3214,13 +3697,13 @@
     <div id="dp-count"></div>
     <div id="dp-btn-row">
       <button id="dp-share-btn"></button>
-      <button id="dp-close-btn" onclick="document.getElementById('daily-percentile-popup').classList.remove('show'); showMenu()"></button>
+      <button id="dp-close-btn" onclick="document.getElementById('daily-percentile-popup').classList.remove('show'); showMenu()" aria-label="סגור / Close"></button>
     </div>
   </div>
 </div>
 
 <!-- ── NEW RECORD POPUP ─────────────────────────────────────────────────── -->
-<div id="new-record-popup">
+<div id="new-record-popup" role="dialog" aria-modal="true" aria-label="שיא אישי חדש / New Personal Best">
   <div id="new-record-card">
     <div class="record-sparkle" style="top:12%;left:10%;background:#f4c430;animation-delay:0s"></div>
     <div class="record-sparkle" style="top:20%;right:12%;background:#cf2316;animation-delay:0.4s"></div>
@@ -3234,7 +3717,7 @@
     <div class="record-title-en">New Personal Best!</div>
     <div class="record-score-display" id="new-record-score"></div>
     <div class="record-sub-he" id="new-record-sub"></div>
-    <button id="new-record-close" onclick="document.getElementById('new-record-popup').classList.remove('show')">&#128170; Nice!</button>
+    <button id="new-record-close" onclick="closeRecordPopup()">&#128170; Nice!</button>
   </div>
 </div>
 
@@ -3273,12 +3756,21 @@
 <div id="lr-levelup-overlay">
   <div id="lr-levelup-card">
     <div class="lr-levelup-particles" id="lr-levelup-particles"></div>
-    <div class="lr-levelup-icon">🚀</div>
+    <div class="lr-levelup-icon-wrap">
+      <span class="lr-levelup-emoji lr-emoji-left" id="lr-emoji-left">🚀</span>
+      <span class="lr-levelup-emoji lr-emoji-right" id="lr-emoji-right">🚀</span>
+    </div>
     <div class="lr-levelup-title" id="lr-levelup-title">Level Up!</div>
     <div class="lr-levelup-nickname" id="lr-levelup-nickname"></div>
     <div class="lr-levelup-level" id="lr-levelup-level"></div>
     <div class="lr-levelup-name" id="lr-levelup-name"></div>
-    <button id="lr-levelup-close" onclick="closeLevelUpPopup()">💪 Let's Go!</button>
+    <div class="lr-levelup-buttons">
+      <button id="lr-levelup-wa" onclick="shareLevelUpWhatsApp()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        <span id="lr-levelup-wa-label">Share on WhatsApp</span>
+      </button>
+      <button id="lr-levelup-close" onclick="closeLevelUpPopup()">💪 Let's Go!</button>
+    </div>
   </div>
 </div>
 
@@ -3287,13 +3779,13 @@
 <div id="nickname-error-popup"></div>
 
 <!-- ── SETTINGS MODAL ─────────────────────────────────────────────────────── -->
-<div id="settings-modal">
+<div id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
   <div id="settings-card">
-    <button id="settings-modal-close" onclick="closeSettingsModal()">✕</button>
+    <button id="settings-modal-close" onclick="closeSettingsModal()" aria-label="סגור / Close">✕</button>
     <h2 id="settings-title">⚙️ Settings</h2>
 
     <div class="settings-field">
-      <label class="settings-label" id="settings-lbl-nickname">Nickname</label>
+      <label class="settings-label" id="settings-lbl-nickname" for="settings-nickname">Nickname</label>
       <input class="login-input" id="settings-nickname" type="text" placeholder="Your nickname…" maxlength="15" pattern="[A-Za-z0-9_]{1,15}"/>
     </div>
 
@@ -3315,33 +3807,132 @@
     </div>
 
     <div id="settings-save-msg"></div>
+
+    <div id="settings-email-updates-row">
+      <span id="settings-email-updates-lbl">Email updates about new game levels and features</span>
+      <label class="toggle-switch" aria-label="Toggle email updates">
+        <input type="checkbox" id="settings-email-updates" onchange="saveEmailUpdatesPref()"/>
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+
+    <button id="settings-delete-btn" onclick="showDeleteConfirm()">🗑️ Delete my account</button>
+    <div id="settings-delete-confirm">
+      <div id="settings-delete-confirm-msg">This will permanently delete your account and all data. This cannot be undone.</div>
+      <div class="settings-delete-confirm-btns">
+        <button id="settings-delete-cancel" onclick="hideDeleteConfirm()">Cancel</button>
+        <button id="settings-delete-yes"    onclick="deleteAccount()">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  </div><!-- /#overlay-scroll-area -->
+</div>
+
+<div id="terms-modal" role="dialog" aria-modal="true" aria-labelledby="terms-modal-title" onclick="if(event.target===this)closeTermsModal()">
+  <div id="terms-modal-card">
+    <button id="terms-modal-close" onclick="closeTermsModal()" aria-label="Close">✕</button>
+    <div id="terms-modal-he" dir="rtl">
+      <h2 id="terms-modal-title">תנאי שימוש</h2>
+      <ol>
+        <li><strong>השירות:</strong> המשחק ניתן לשימוש "כמות שהוא" (As-Is). המפעיל אינו אחראי לזמינות הרציפה של השרתים.</li>
+        <li><strong>הצהרת בינה מלאכותית (AI):</strong> חלק מהתכנים והעובדות במשחק הופקו באמצעות כלי בינה מלאכותית. מידע זה עשוי לכלול אי-דיוקים או טעויות. השימוש במידע הוא על אחריות המשתמש בלבד והמפעיל לא יישא באחריות לכל נזק הנובע מהסתמכות על תוכן זה.</li>
+        <li><strong>דיוק מפות:</strong> המפות מבוססות על שירותי Leaflet/OpenStreetMap. אין לראות במפות כהצהרה רשמית על גבולות או שמות גיאוגרפיים.</li>
+        <li><strong>הגבלת אחריות:</strong> המפעיל לא יהיה אחראי לכל נזק ישיר או עקיף הנובע מהשימוש במשחק.</li>
+        <li><strong>סמכות שיפוט:</strong> הדין החל הוא הדין הישראלי. סמכות השיפוט הבלעדית נתונה לבתי המשפט במחוז המרכז.</li>
+      </ol>
+    </div>
+    <div id="terms-modal-en" dir="ltr" style="display:none">
+      <h2>Terms of Use</h2>
+      <ol>
+        <li><strong>The Service:</strong> The game is provided "As-Is." The operator is not responsible for server uptime or data loss.</li>
+        <li><strong>AI Content Disclosure:</strong> Some facts and content in this game are generated by Artificial Intelligence. This information may contain inaccuracies or errors. Use of this content is at the user's sole risk; the operator shall not be liable for any damages arising from reliance on this information.</li>
+        <li><strong>Map Accuracy:</strong> Maps are powered by Leaflet/OpenStreetMap. Map data should not be interpreted as an official statement regarding borders or geographic names.</li>
+        <li><strong>Limitation of Liability:</strong> To the fullest extent permitted by law, the operator shall not be liable for any direct or indirect damages resulting from the use of the game.</li>
+        <li><strong>Jurisdiction:</strong> These terms are governed by Israeli law. Exclusive jurisdiction is granted to the courts of the Central District of Israel.</li>
+      </ol>
+    </div>
   </div>
 </div>
 
-<div id="login-modal">
+<div id="privacy-modal" role="dialog" aria-modal="true" aria-labelledby="privacy-modal-title" onclick="if(event.target===this)closePrivacyModal()">
+  <div id="privacy-modal-card">
+    <button id="privacy-modal-close" onclick="closePrivacyModal()" aria-label="Close">✕</button>
+    <div id="privacy-modal-he" dir="rtl">
+      <h2 id="privacy-modal-title">מדיניות פרטיות</h2>
+      <p class="privacy-updated">עודכן מרץ 2026</p>
+      <ol>
+        <li><strong>המידע שנאסף:</strong> אנו אוספים כתובת אימייל ושם (דרך Google Login) ונתוני שימוש אנונימיים (דרך Google Analytics).</li>
+        <li><strong>מטרת האיסוף:</strong> זיהוי המשתמש, שמירת הישגים, ושיפור טכנולוגי של המשחק.</li>
+        <li><strong>אחסון וצדדים שלישיים:</strong> המידע נשמר בשירותי הענן של Google (Firebase) ועשוי להיות מאוחסן מחוץ לגבולות ישראל.</li>
+        <li><strong>זכויות המשתמש:</strong> הנך זכאי לעיין במידע, לעדכנו או למחוק את חשבונך בכל עת דרך תפריט ההגדרות או בפנייה למייל: <a href="mailto:gillyisraelquiz@gmail.com">gillyisraelquiz@gmail.com</a>.</li>
+        <li><strong>עוגיות:</strong> האתר משתמש בעוגיות הכרחיות לצורך חיבור המשתמש ובכלים של Google Analytics לניטור תנועה.</li>
+      </ol>
+    </div>
+    <div id="privacy-modal-en" dir="ltr" style="display:none">
+      <h2>Privacy Policy</h2>
+      <p class="privacy-updated">Updated March 2026</p>
+      <ol>
+        <li><strong>Data Collected:</strong> We collect your email and name (via Google Login) and anonymous usage data (via Google Analytics).</li>
+        <li><strong>Purpose:</strong> For user authentication, saving game progress, and technical improvement.</li>
+        <li><strong>Storage &amp; Third Parties:</strong> Data is stored on Google Cloud (Firebase) and may be hosted outside of Israel.</li>
+        <li><strong>User Rights:</strong> You have the right to access, update, or delete your data at any time via the settings menu or by contacting: <a href="mailto:gillyisraelquiz@gmail.com">gillyisraelquiz@gmail.com</a>.</li>
+        <li><strong>Cookies:</strong> We use essential cookies for login functionality and Google Analytics for traffic monitoring.</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<div id="login-modal" role="dialog" aria-modal="true" aria-labelledby="login-modal-heading">
   <div id="login-card" style="position:relative">
-    <button id="login-modal-close" onclick="closeLoginModal()">✕</button>
-    <h2>🇮🇱 התחברות</h2>
+    <button id="login-modal-close" onclick="closeLoginModal()" aria-label="סגור / Close">✕</button>
+    <h2 id="login-modal-heading">🇮🇱 התחברות</h2>
     <p class="login-sub">Save your scores and track your progress</p>
 
-    <button class="btn-google" onclick="signInGoogle()">
-      <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
-      Continue with Google
-    </button>
+    <div id="login-main-section">
+      <button class="btn-google" onclick="signInGoogle()">
+        <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
+        Continue with Google
+      </button>
 
-    <div class="login-divider">or</div>
+      <div class="login-divider">or</div>
 
-    <div id="login-form-section">
-      <div style="display:flex;flex-direction:column;gap:8px">
-        <input class="login-input" id="login-name" type="text" placeholder="Display name" style="display:none"/>
-        <input class="login-input" id="login-email" type="email" placeholder="Email address"/>
-        <input class="login-input" id="login-password" type="password" placeholder="Password"/>
+      <div id="login-form-section">
+        <div style="display:flex;flex-direction:column;gap:8px">
+
+          <label for="login-email" class="sr-only">Email address</label>
+          <input class="login-input" id="login-email" type="email" placeholder="Email address" aria-label="Email address"/>
+          <label for="login-password" class="sr-only">Password</label>
+          <input class="login-input" id="login-password" type="password" placeholder="Password" aria-label="Password"/>
+        </div>
+        <div id="signup-email-updates-row">
+          <input type="checkbox" id="signup-email-updates"/>
+          <label for="signup-email-updates" id="signup-email-updates-lbl" dir="ltr">I'd love to get updates on new levels and cool features via email. (Don't worry, we only send game-related stuff and never share your email with anyone else).</label>
+        </div>
+        <div id="signup-terms-row">
+          <input type="checkbox" id="signup-terms"/>
+          <label for="signup-terms" id="signup-terms-lbl" dir="ltr">By signing up, you agree to our <a href="javascript:void(0)" id="signup-terms-link" onclick="openTermsModal(); event.stopPropagation()">Terms</a> and <a href="javascript:void(0)" id="signup-privacy-link" onclick="openPrivacyModal(); event.stopPropagation()">Privacy Notice</a>. Providing your email is voluntary and used to save game progress. This game uses Google Analytics to improve the user experience.</label>
+        </div>
+        <div id="login-error"></div>
+        <button class="btn-auth-submit" id="login-submit-btn" onclick="submitEmailAuth()">Sign in</button>
+        <div id="login-toggle">
+          Don't have an account? <a onclick="toggleAuthMode()">Sign up</a>
+        </div>
       </div>
-      <div id="login-error"></div>
-      <button class="btn-auth-submit" id="login-submit-btn" onclick="submitEmailAuth()">Sign in</button>
-      <div id="login-toggle">
-        Don't have an account? <a onclick="toggleAuthMode()">Sign up</a>
+    </div>
+
+    <div id="google-signup-step" style="display:none;flex-direction:column;gap:12px;">
+      <p id="google-signup-desc" style="font-size:0.88rem;color:var(--muted);text-align:center;margin:0;">Almost there! Just a couple of things:</p>
+      <div class="google-terms-row" style="display:flex;align-items:flex-start;gap:8px;font-size:0.78rem;color:var(--text);line-height:1.45;">
+        <input type="checkbox" id="google-signup-terms" style="margin-top:2px;accent-color:#1a6fd4;cursor:pointer;flex-shrink:0;"/>
+        <label for="google-signup-terms" id="google-signup-terms-lbl" dir="ltr" style="cursor:pointer;">By signing up, you agree to our <a href="javascript:void(0)" id="google-terms-link" onclick="openTermsModal(); event.stopPropagation()">Terms</a> and <a href="javascript:void(0)" id="google-privacy-link" onclick="openPrivacyModal(); event.stopPropagation()">Privacy Notice</a>. Providing your email is voluntary and used to save game progress. This game uses Google Analytics to improve the user experience.</label>
       </div>
+      <div style="display:flex;align-items:flex-start;gap:8px;font-size:0.78rem;color:var(--muted);line-height:1.45;">
+        <input type="checkbox" id="google-signup-eu" style="margin-top:3px;accent-color:#1a6fd4;cursor:pointer;flex-shrink:0;"/>
+        <label for="google-signup-eu" id="google-signup-eu-lbl" dir="ltr" style="cursor:pointer;">I'd love to get updates on new levels and cool features via email. (Don't worry, we only send game-related stuff and never share your email with anyone else).</label>
+      </div>
+      <div id="google-signup-error" style="color:#c0392b;font-size:0.82rem;min-height:1rem;"></div>
+      <button class="btn-auth-submit" id="google-signup-btn" onclick="submitGoogleSignup()">Let's play!</button>
     </div>
   </div>
 </div>
@@ -3349,12 +3940,67 @@
 <script src="towns.js"></script>
 
 <script>
+// ── Feature flags ──────────────────────────────────────────────────────────
+const ENABLE_PLANE_ANIMATION = false; // Set to true to re-enable animated F-16 formations
+
+// ── HTML ESCAPE UTILITY (XSS prevention) ───────────────────────────────────
+function esc(s) {
+  const d = document.createElement('div');
+  d.appendChild(document.createTextNode(s));
+  return d.innerHTML;
+}
+
+// ── FOCUS TRAP UTILITY ─────────────────────────────────────────────────────
+const FOCUSABLE_SELECTORS = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+let _focusTrapHandlers = {};
+let _focusTrapPrevious = {};
+
+function trapFocus(modal) {
+  const id = modal.id;
+  if (_focusTrapHandlers[id]) modal.removeEventListener('keydown', _focusTrapHandlers[id]);
+  _focusTrapPrevious[id] = document.activeElement;
+
+  function handler(e) {
+    if (e.key !== 'Tab') return;
+    const focusable = Array.from(modal.querySelectorAll(FOCUSABLE_SELECTORS)).filter(el => !el.closest('[style*="display:none"]') && !el.closest('[style*="display: none"]'));
+    if (!focusable.length) return;
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+    } else {
+      if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  }
+  _focusTrapHandlers[id] = handler;
+  modal.addEventListener('keydown', handler);
+  const focusable = Array.from(modal.querySelectorAll(FOCUSABLE_SELECTORS)).filter(el => !el.closest('[style*="display:none"]') && !el.closest('[style*="display: none"]'));
+  if (focusable.length) focusable[0].focus();
+}
+
+function releaseFocus(modal) {
+  const id = modal.id;
+  if (_focusTrapHandlers[id]) {
+    modal.removeEventListener('keydown', _focusTrapHandlers[id]);
+    delete _focusTrapHandlers[id];
+  }
+  if (_focusTrapPrevious[id] && _focusTrapPrevious[id].focus) {
+    _focusTrapPrevious[id].focus();
+    delete _focusTrapPrevious[id];
+  }
+}
 
 const DIFF = {
   // maxPts: base points for a perfect click; maxKm: distance beyond which you score 0; maxTier: highest town tier included
   easy:   { maxPts:100, maxKm:100, maxTier:1, color:"#1a7f37" },
   medium: { maxPts:100, maxKm:50,  maxTier:2, color:"#9a6700" },
   hard:   { maxPts:100, maxKm:20,  maxTier:4, color:"#cf2316" },
+};
+
+// Tier preference multipliers per difficulty: higher tiers get more weight on harder difficulties
+const TIER_DIFF_WEIGHT = {
+  easy:   { 1: 1,   2: 0,   3: 0,   4: 0   },
+  medium: { 1: 1,   2: 3,   3: 0,   4: 0   },
+  hard:   { 1: 0.3, 2: 0.7, 3: 2,   4: 2   },
 };
 
 // Perfect radius by tier: bigger places are easier to hit for full points
@@ -3374,11 +4020,15 @@ const LEARNING_TIER_NAMES = {
 };
 
 const PLAYER_LEVEL_NAMES = {
-  1: { en: 'City Rat',       he: 'עכבר העיר'    },
-  2: { en: 'Periphery Fox',  he: 'שועל פריפריה' },
-  3: { en: 'Country Mouse',  he: 'עכבר הכפר'    },
-  4: { en: 'Trail King',     he: 'מלך השבילים'  },
+  1: { en: 'Waze Dependent',     he: 'תלוי בווייז'   },
+  2: { en: 'Periphery Fox',      he: 'שועל פריפריה'  },
+  3: { en: 'Satellite Brain',    he: 'מוח לווייני'   },
+  4: { en: 'King of the Trails', he: 'מלך השבילים'   },
+  5: { en: 'Legend of the Land',  he: 'אגדת הארץ'    },
 };
+
+// Cumulative points required for each level (index = level number)
+const LEVEL_POINTS = [0, 0, 3000, 10000, 30000, 100000];
 
 // Time bonus: up to +30 pts, decays to 0 over TIME_BONUS_SECS seconds
 const TIME_BONUS_MAX  = 30;
@@ -3560,6 +4210,8 @@ const STRINGS = {
     layer_street:     "🗺️ Street map",
     layer_satellite:  "🛰️ Satellite",
     fact_close:       "Close",
+    fact_login_link:  "Log in",
+    fact_login_text:  " for fun facts",
     menu_desc:        "Pin the location on the map.",
     diff_easy:        "Easy",
     diff_medium:      "Medium",
@@ -3598,6 +4250,8 @@ const STRINGS = {
     layer_street:     "🗺️ מפת רחוב",
     layer_satellite:  "🛰️ לוויין",
     fact_close:       "סגור",
+    fact_login_link:  "התחבר",
+    fact_login_text:  " לעובדות מעניינות",
     menu_desc:        "מצא/י את המיקום על המפה",
     diff_easy:        "קל",
     diff_medium:      "בינוני",
@@ -3633,19 +4287,38 @@ function t(key) { return STRINGS[lang][key]; }
 
 function setLang(l) {
   lang = l;
+  document.documentElement.lang = l === 'he' ? 'he' : 'en';
+  document.title = l === 'he' ? 'חידון ישראל של גילי' : "Gilly's Israel Quiz";
   applyLang();
 }
 function toggleLang() {
   setLang(lang === 'he' ? 'en' : 'he');
 }
+function copyAccessibilityEmail() {
+  navigator.clipboard.writeText('gillyisraelquiz@gmail.com').then(() => {
+    const btn = document.getElementById('accessibility-footer-email');
+    if (!btn) return;
+    const prevText = btn.textContent;
+    const prevDir  = btn.dir;
+    if (lang === 'he') {
+      btn.dir = 'rtl';
+      btn.textContent = '✓ הועתק!';
+    } else {
+      btn.textContent = '✓ Copied!';
+    }
+    setTimeout(() => { btn.textContent = prevText; btn.dir = prevDir; }, 2000);
+  });
+}
 
 function applyLang() {
   document.body.dir = 'ltr';
-  const titleEl = document.getElementById('title-text'); if (titleEl) titleEl.textContent = t('title');
+  document.getElementById('title-text').textContent = t('title');
   document.getElementById('overlay-title-text').textContent = t('title');
   document.getElementById('lbl-score').textContent = t('score');
   document.getElementById('lbl-round').textContent = t('round');
   document.getElementById('fact-modal-close').textContent = t('fact_close');
+  document.getElementById('fact-login-link').textContent  = t('fact_login_link');
+  document.getElementById('fact-login-text').textContent  = t('fact_login_text');
   document.getElementById('menu-desc').innerHTML = t('menu_desc');
   document.getElementById('menu-mode-title').textContent = t('game_mode');
   document.getElementById('d-easy').textContent   = t('diff_easy');
@@ -3668,6 +4341,13 @@ function applyLang() {
   document.getElementById('mobile-tools-layer').innerHTML = currentLayer === 'satellite' ? t('layer_street') : t('layer_satellite');
   // Update single lang toggle button — shows the OTHER language to switch to
   document.getElementById('lang-toggle').textContent = lang === 'he' ? '🌐 English' : '🌐 עברית';
+  // Update accessibility statement footer link and contact label
+  const accFooter = document.getElementById('accessibility-footer-link');
+  if (accFooter) accFooter.textContent = lang === 'he' ? 'הצהרת נגישות' : 'Accessibility Statement';
+  const accContact = document.getElementById('accessibility-contact-label');
+  if (accContact) { accContact.textContent = lang === 'he' ? 'צור קשר:' : 'Contact:'; accContact.dir = lang === 'he' ? 'rtl' : 'ltr'; }
+  const accFooterBar = document.getElementById('accessibility-footer-bar');
+  if (accFooterBar) accFooterBar.dir = lang === 'he' ? 'rtl' : 'ltr';
   // Share button & popup
   const shareBtnLabel = document.getElementById('share-btn-label');
   if (shareBtnLabel) shareBtnLabel.textContent = lang === 'he' ? 'שתף' : 'Share';
@@ -3681,7 +4361,7 @@ function applyLang() {
   const elCWA = document.getElementById('lbl-challenge-wa');
   if (elCWA) elCWA.textContent = lang === 'he' ? 'אתגר בוואטסאפ' : 'Challenge on WhatsApp';
   const elCC = document.getElementById('lbl-challenge-copy');
-  if (elCC) elCC.textContent = lang === 'he' ? 'העתק קישור אתגר' : 'Copy challenge link';
+  if (elCC) elCC.textContent = lang === 'he' ? 'העתק קישור לאתגר' : 'Copy challenge link';
   const cInput = document.getElementById('challenge-search-input');
   if (cInput && !cInput.value) cInput.placeholder = lang === 'he' ? 'חפש/י מיקום...' : 'Search for a location...';
   // Challenge intro strings
@@ -3713,11 +4393,21 @@ function applyLang() {
   if (!window._fbUser) {
     document.getElementById('auth-label').textContent = lang === 'he' ? 'התחברות' : 'Log in';
   }
-  if (document.getElementById('auth-dd-switch')) {
-    document.getElementById('auth-dd-switch').textContent   = lang === 'he' ? 'החלף חשבון'  : 'Switch account';
+  if (document.getElementById('auth-dd-settings')) {
     document.getElementById('auth-dd-signout').textContent  = lang === 'he' ? 'התנתקות'     : 'Sign out';
     document.getElementById('auth-dd-settings').textContent = lang === 'he' ? 'הגדרות'      : 'Settings';
   }
+  if (document.getElementById('auth-dd-switch')) {
+    document.getElementById('auth-dd-switch').textContent   = lang === 'he' ? 'החלף חשבון'  : 'Switch account';
+  }
+  const pmHe = document.getElementById('privacy-modal-he');
+  const pmEn = document.getElementById('privacy-modal-en');
+  if (pmHe) pmHe.style.display = lang === 'he' ? '' : 'none';
+  if (pmEn) pmEn.style.display = lang === 'he' ? 'none' : '';
+  const tmHe = document.getElementById('terms-modal-he');
+  const tmEn = document.getElementById('terms-modal-en');
+  if (tmHe) tmHe.style.display = lang === 'he' ? '' : 'none';
+  if (tmEn) tmEn.style.display = lang === 'he' ? 'none' : '';
   if (document.getElementById('settings-title')) {
     document.getElementById('settings-title').textContent        = lang === 'he' ? '⚙️ הגדרות'   : '⚙️ Settings';
     document.getElementById('settings-lbl-nickname').textContent = lang === 'he' ? 'כינוי'       : 'Nickname';
@@ -3727,14 +4417,45 @@ function applyLang() {
     document.getElementById('gender-male').innerHTML   = lang === 'he' ? '👨 זכר'   : '👨 Male';
     document.getElementById('gender-female').innerHTML = lang === 'he' ? '👩 נקבה'  : '👩 Female';
     document.getElementById('gender-other').innerHTML  = lang === 'he' ? '🧑 אחר'   : '🧑 Other';
+    document.getElementById('settings-email-updates-lbl').textContent  = lang === 'he' ? 'עדכונים במייל על רמות ותכונות חדשות' : 'Email updates about new game levels and features';
+    document.getElementById('settings-delete-btn').textContent        = lang === 'he' ? '🗑️ מחיקת חשבון'                                                                           : '🗑️ Delete my account';
+    document.getElementById('settings-delete-confirm-msg').textContent = lang === 'he' ? 'פעולה זו תמחק לצמיתות את חשבונך וכל הנתונים. לא ניתן לבטל.' : 'This will permanently delete your account and all data. This cannot be undone.';
+    document.getElementById('settings-delete-cancel').textContent     = lang === 'he' ? 'ביטול'  : 'Cancel';
+    document.getElementById('settings-delete-yes').textContent        = lang === 'he' ? 'מחיקה'  : 'Delete';
+    const EU_TEXT_HE = 'אשמח לקבל עדכונים על שלבים חדשים ופיצ\'רים מעניינים במייל. (אל דאגה, אנחנו שולחים רק דברים שקשורים למשחק ולא מעבירים את המייל לאף אחד אחר).';
+    const EU_TEXT_EN = "I'd love to get updates on new levels and cool features via email. (Don't worry, we only send game-related stuff and never share your email with anyone else).";
+    const euSignupLbl = document.getElementById('signup-email-updates-lbl');
+    if (euSignupLbl) {
+      euSignupLbl.dir = lang === 'he' ? 'rtl' : 'ltr';
+      euSignupLbl.textContent = lang === 'he' ? EU_TEXT_HE : EU_TEXT_EN;
+    }
+    const euGoogleLbl = document.getElementById('google-signup-eu-lbl');
+    if (euGoogleLbl) {
+      euGoogleLbl.dir = lang === 'he' ? 'rtl' : 'ltr';
+      euGoogleLbl.textContent = lang === 'he' ? EU_TEXT_HE : EU_TEXT_EN;
+    }
+    const TERMS_TEXT_HE = 'בהרשמה, אתה מסכים ל<a href="javascript:void(0)" onclick="openTermsModal(); event.stopPropagation()">תנאי השימוש</a> ול<a href="javascript:void(0)" onclick="openPrivacyModal(); event.stopPropagation()">מדיניות הפרטיות</a> שלנו. מסירת האימייל היא וולונטרית ומשמשת לשמירת התקדמות המשחק. המשחק משתמש ב-Google Analytics לצורך שיפור חווית המשתמש.';
+    const TERMS_TEXT_EN = 'By signing up, you agree to our <a href="javascript:void(0)" onclick="openTermsModal(); event.stopPropagation()">Terms of Use</a> and <a href="javascript:void(0)" onclick="openPrivacyModal(); event.stopPropagation()">Privacy Policy</a>. Providing your email is voluntary and used to save game progress. This game uses Google Analytics to improve the user experience.';
+    const termsSignupLbl = document.getElementById('signup-terms-lbl');
+    if (termsSignupLbl) {
+      termsSignupLbl.dir = lang === 'he' ? 'rtl' : 'ltr';
+      termsSignupLbl.innerHTML = lang === 'he' ? TERMS_TEXT_HE : TERMS_TEXT_EN;
+    }
+    const termsGoogleLbl = document.getElementById('google-signup-terms-lbl');
+    if (termsGoogleLbl) {
+      termsGoogleLbl.dir = lang === 'he' ? 'rtl' : 'ltr';
+      termsGoogleLbl.innerHTML = lang === 'he' ? TERMS_TEXT_HE : TERMS_TEXT_EN;
+    }
+    const googleDesc = document.getElementById('google-signup-desc');
+    if (googleDesc) googleDesc.textContent = lang === 'he' ? '!כמעט סיימנו, רק כמה פרטים קטנים' : 'Almost there! Just a couple of things:';
+    const googleBtn = document.getElementById('google-signup-btn');
+    if (googleBtn) googleBtn.textContent = lang === 'he' ? '!בואו נשחק' : "Let's play!";
   }
   // Update live town name/desc if a game is in progress
   const overlayVisible = document.getElementById('overlay').style.display !== 'none';
   if (!overlayVisible && sequence.length > 0 && currentIdx < sequence.length) {
     document.getElementById('town-name').textContent = lang === 'he' ? sequence[currentIdx].nameHe : sequence[currentIdx].name;
-    document.getElementById('town-desc').textContent = lang === 'he' ? sequence[currentIdx].descHe : sequence[currentIdx].desc;
   } else if (overlayVisible || sequence.length === 0) {
-    document.getElementById('town-desc').textContent = t('placeholder_desc');
   }
   // Swap street tile layer to match the new language
   if (currentLayer === 'street') {
@@ -3758,6 +4479,8 @@ function applyLang() {
 let lang = "he";
 let difficulty = "easy", region = "all", sequence = [], currentIdx = 0, score = 0, roundCount = 8;
 let streak = 0, hintUsed = false, streetUsedThisRound = false, results = [], waiting = false;
+let locationFamiliarity = {}; // { [townName]: 0 | 1 | 2 } — 0=unfamiliar, 1=partly, 2=familiar
+let cumulativePoints = 0;    // total points earned across all regular quiz games (for leveling)
 let correctMarkers = [], clickMarker = null, circle = null, hintCircle = null, guessLine = null;
 
 // ── Challenge mode state ──────────────────────────────────────────────────────
@@ -3770,7 +4493,7 @@ let hintsLeft = 3, hintAnimFrame = null;
 // ── Learning Mode State ───────────────────────────────────────────────────────
 let isLearningMode = false;
 let learningSequence = [], learningIdx = 0, learningAttempt = 0;
-let knownLocations = [], learningSessionResults = [], learningPins = [];
+let learningSessionResults = [], learningPins = [];
 let learningPreviewActive = false, learningPreviewTimer = null, learningPreviewInterval = null;
 
 // ── Daily Challenge State ─────────────────────────────────────────────────────
@@ -3795,7 +4518,6 @@ const map = L.map('map', {
   minZoom: 7,
   maxZoom: 18,
   zoomControl: true,
-  attributionControl: false,
   maxBounds: ISRAEL_BOUNDS,
   maxBoundsViscosity: 1.0,
 });
@@ -3806,7 +4528,7 @@ const map = L.map('map', {
 // Create two tile layers - satellite and street map
 const satelliteLayer = L.tileLayer(
   'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-  { attribution: '&copy; Esri', maxZoom: 18 }
+  { attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community', maxZoom: 18 }
 );
 
 // Hebrew street map (OSM default — labels in Hebrew)
@@ -4390,6 +5112,65 @@ fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/coun
 
 map.on('click', onMapClick);
 
+// ── KEYBOARD MAP NAVIGATION ────────────────────────────────────────────────
+(function () {
+  const kbIcon = L.divIcon({
+    className: 'kb-crosshair',
+    html: '<div></div>',
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+  });
+  let kbMarker = null;
+  let kbLatLng = null;
+
+  const mapEl = document.getElementById('map');
+
+  mapEl.addEventListener('focus', () => {
+    if (!mapEl.matches(':focus-visible')) return;
+    if (waiting) return;
+    if (!kbLatLng) kbLatLng = map.getCenter();
+    if (!kbMarker) {
+      kbMarker = L.marker(kbLatLng, { icon: kbIcon, interactive: false, keyboard: false }).addTo(map);
+    } else {
+      kbMarker.setLatLng(kbLatLng);
+      map.addLayer(kbMarker);
+    }
+  });
+
+  mapEl.addEventListener('blur', () => {
+    if (kbMarker) map.removeLayer(kbMarker);
+  });
+
+  mapEl.addEventListener('keydown', (e) => {
+    if (waiting) return;
+    const ARROW_KEYS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+    if (!ARROW_KEYS.includes(e.key) && e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+
+    if (ARROW_KEYS.includes(e.key)) {
+      // Step shrinks as zoom increases (0.05° at zoom 7, halves each level)
+      const step = 0.05 / Math.pow(2, map.getZoom() - 7);
+      if (!kbLatLng) kbLatLng = map.getCenter();
+      let { lat, lng } = kbLatLng;
+      if (e.key === 'ArrowUp')    lat = Math.min(ISRAEL_BOUNDS.getNorth(), lat + step);
+      if (e.key === 'ArrowDown')  lat = Math.max(ISRAEL_BOUNDS.getSouth(), lat - step);
+      if (e.key === 'ArrowRight') lng = Math.min(ISRAEL_BOUNDS.getEast(),  lng + step);
+      if (e.key === 'ArrowLeft')  lng = Math.max(ISRAEL_BOUNDS.getWest(),  lng - step);
+      kbLatLng = L.latLng(lat, lng);
+      if (!kbMarker) {
+        kbMarker = L.marker(kbLatLng, { icon: kbIcon, interactive: false, keyboard: false }).addTo(map);
+      } else {
+        kbMarker.setLatLng(kbLatLng);
+      }
+      map.panInside(kbLatLng, { padding: [60, 60] });
+
+    } else if (kbLatLng) {
+      onMapClick({ latlng: kbLatLng });
+      if (kbMarker) { map.removeLayer(kbMarker); kbMarker = null; }
+    }
+  });
+})();
+
 // ── TOUCH-DRAG GUARD: block the click that fires after a map pan/scroll ────────
 // Leaflet fires 'click' after touchend even when the finger moved (panned the map).
 // We track movement during the touch so onMapClick can ignore post-drag clicks.
@@ -4421,20 +5202,50 @@ let factModalOpen = false;
 
 function openFactModal(townName) {
   const town = TOWNS.find(t => t.name === townName);
+  const titleEl = document.getElementById('fact-modal-title');
+  const bodyEl  = document.getElementById('fact-modal-body');
+  const loginPromptEl = document.getElementById('fact-login-prompt');
+  const factModal = document.getElementById('fact-modal');
+
+  titleEl.textContent = lang === 'he' ? (town?.nameHe || townName) : townName;
+  titleEl.dir = lang === 'he' ? 'rtl' : 'ltr';
+
+  if (!window._fbUser) {
+    window._pendingFactTown = townName;
+    bodyEl.style.display = 'none';
+    loginPromptEl.style.display = '';
+    loginPromptEl.dir = lang === 'he' ? 'rtl' : 'ltr';
+    document.getElementById('fact-login-link').textContent = t('fact_login_link');
+    document.getElementById('fact-login-text').textContent = t('fact_login_text');
+    factModal.style.display = 'flex';
+    factModalOpen = true;
+    trapFocus(factModal);
+    return;
+  }
+
+  window._pendingFactTown = null;
+  bodyEl.style.display = '';
+  loginPromptEl.style.display = 'none';
   const fact = lang === 'he'
     ? (town?.factHe || town?.fact || 'אין עובדה זמינה.')
     : (town?.fact  || 'No fact available.');
-  document.getElementById('fact-modal-title').textContent = lang === 'he' ? (town?.nameHe || townName) : townName;
-  document.getElementById('fact-modal-body').textContent = fact;
-  document.getElementById('fact-modal-body').dir = lang === 'he' ? 'rtl' : 'ltr';
-  document.getElementById('fact-modal-title').dir = lang === 'he' ? 'rtl' : 'ltr';
-  document.getElementById('fact-modal').style.display = 'flex';
+  bodyEl.textContent = fact;
+  bodyEl.dir = lang === 'he' ? 'rtl' : 'ltr';
+  factModal.style.display = 'flex';
   factModalOpen = true;
+  trapFocus(factModal);
+}
+
+function openLoginModalForFact() {
+  closeFactModal();
+  openLoginModal();
 }
 
 function closeFactModal() {
-  document.getElementById('fact-modal').style.display = 'none';
+  const factModal = document.getElementById('fact-modal');
+  factModal.style.display = 'none';
   factModalOpen = false;
+  releaseFocus(factModal);
 }
 
 // Close on backdrop click
@@ -4464,6 +5275,28 @@ function shuffle(arr) {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+
+// Weighted random sampling without replacement using locationFamiliarity.
+// Weights: unfamiliar(0)=20, partly familiar(1)=10, fully familiar(2)=1.
+// Optional weights Map (name → number) overrides familiarity-based weights.
+function weightedSample(pool, n, weights) {
+  const W = { 0: 20, 1: 10, 2: 1 };
+  const count = Math.min(n, pool.length);
+  const entries = pool.map(t => ({ town: t, w: weights ? (weights.get(t.name) ?? 1) : W[locationFamiliarity[t.name] ?? 0] }));
+  const selected = [];
+  for (let i = 0; i < count; i++) {
+    const total = entries.reduce((s, e) => s + e.w, 0);
+    let r = Math.random() * total;
+    let idx = 0;
+    for (; idx < entries.length - 1; idx++) {
+      r -= entries[idx].w;
+      if (r <= 0) break;
+    }
+    selected.push(entries[idx].town);
+    entries.splice(idx, 1);
+  }
+  return selected;
 }
 
 function haversineKm(lat1, lng1, lat2, lng2) {
@@ -4822,14 +5655,12 @@ function adjustMobileTownFontSize(name) {
 function loadTown() {
   const t = sequence[currentIdx];
   const townName = lang === 'he' ? t.nameHe : t.name;
-  const townDesc = lang === 'he' ? t.descHe : t.desc;
 
   // Prefetch polygon for this town (and the next one) so it's ready by the time user clicks
   fetchCityPolygon(t.name);
   if (currentIdx + 1 < sequence.length) fetchCityPolygon(sequence[currentIdx + 1].name);
   
   document.getElementById('town-name').textContent = townName;
-  document.getElementById('town-desc').textContent = townDesc;
   // Also update mobile versions
   document.querySelector('#mobile-topbar-town .mob-town-text').textContent = townName;
   adjustMobileTownFontSize(townName);
@@ -4882,9 +5713,15 @@ function setRegion(r) {
     document.getElementById(`r-${k}`).className = `region-card${k === r ? ' active' : ''}`;
   });
 }
+function handleRegionKey(e, region) {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setRegion(region); }
+}
 
 function useHint() {
   if (hintUsed || waiting || hintsLeft <= 0) return;
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('hint_used', { difficulty });
+  }
   closeMobileTools();
   hintUsed = true;
   hintsLeft--;
@@ -4937,6 +5774,7 @@ function useHint() {
 }
 
 function initPlaneAnimation() {
+  if (!ENABLE_PLANE_ANIMATION) return;
   const layer = document.getElementById('planes-layer');
   if (!layer || layer.dataset.initialized) return;
   layer.dataset.initialized = 'true';
@@ -5024,7 +5862,9 @@ function showMenu() {
   // Clear any formations that accumulated while the menu was hidden
   document.querySelectorAll('#planes-layer .formation').forEach(f => f.remove());
   document.getElementById('results-panel').className = '';
+  document.body.classList.remove('postgame');
   document.getElementById('scoreboard-panel').className = '';
+  document.getElementById('quiz-progress-popup').classList.remove('show');
   document.getElementById('btn-back').style.display = 'none';
   closeMobileTools();
   clearAllMarkers();
@@ -5040,26 +5880,21 @@ function showMenu() {
 
 // ── Learning Mode ─────────────────────────────────────────────────────────────
 
-function getLearningTier() {
+function getFamiliarityLevel() {
   for (let tier = 1; tier <= 4; tier++) {
     const allInTier = TOWNS.filter(t => t.tier === tier);
-    if (!allInTier.every(t => knownLocations.includes(t.name))) return tier;
+    if (!allInTier.every(t => (locationFamiliarity[t.name] ?? 0) >= 2)) return tier;
   }
   return null; // all tiers complete
 }
 
-function showKnownPins() {
-  clearLearningPins();
-  const known = new Set(knownLocations);
-  TOWNS.forEach(t => {
-    if (!known.has(t.name)) return;
-    const pin = L.circleMarker([t.lat, t.lng], {
-      radius: 5, color: '#1a7f37', weight: 1.5,
-      fillColor: '#1a7f37', fillOpacity: 0.7,
-    }).addTo(map);
-    learningPins.push(pin);
-  });
+function getPlayerLevel() {
+  for (let lvl = 5; lvl >= 2; lvl--) {
+    if (cumulativePoints >= LEVEL_POINTS[lvl]) return lvl;
+  }
+  return 1;
 }
+
 
 function clearLearningPins() {
   learningPins.forEach(p => map.removeLayer(p));
@@ -5116,10 +5951,8 @@ function clearLearningPreview() {
 function loadLearningTown() {
   const t = learningSequence[learningIdx];
   const townName = lang === 'he' ? t.nameHe : t.name;
-  const townDesc = lang === 'he' ? t.descHe : t.desc;
 
   document.getElementById('town-name').textContent = townName;
-  document.getElementById('town-desc').textContent = townDesc;
   document.querySelector('#mobile-topbar-town .mob-town-text').textContent = townName;
   adjustMobileTownFontSize(townName);
 
@@ -5203,26 +6036,19 @@ function advanceLearning() {
 }
 
 async function showLearningResults() {
-  const masteredNames = learningSessionResults.filter(r => r.mastered).map(r => r.town.name);
-  const prevKnownSet = new Set(knownLocations);
-  const newKnown = [...knownLocations, ...masteredNames.filter(n => !prevKnownSet.has(n))];
-  const prevTier = getLearningTier();
+  // Familiarity is only updated in quiz game mode, not in learning mode
+  const prevTier = getFamiliarityLevel();
 
-  knownLocations = newKnown;
-  if (window._fbUser && masteredNames.length > 0) {
-    try {
-      const { setDoc, doc } = window._fbFns;
-      await setDoc(doc(window._fbDb, 'users', window._fbUser.uid), { knownLocations: newKnown }, { merge: true });
-    } catch (e) { console.error('Failed to save known locations:', e); }
-  }
-
-  const newTier = getLearningTier();
+  const newTier = getFamiliarityLevel();
   const leveledUp = prevTier !== null && newTier !== prevTier;
   const mastered = learningSessionResults.filter(r => r.mastered).length;
   const total = learningSessionResults.length;
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('learning_session_complete', { mastered, total, tier: prevTier });
+  }
 
   const heDir = lang === 'he' ? 'rtl' : 'ltr';
-  const nickname = document.getElementById('settings-nickname').value.trim() || '';
+  const nickname = window._userNickname || document.getElementById('settings-nickname').value.trim() || '';
 
   document.getElementById('lr-nickname').textContent = nickname;
   document.getElementById('lr-emoji').textContent = mastered === total ? '🏆' : mastered > 0 ? '🌟' : '📚';
@@ -5234,9 +6060,10 @@ async function showLearningResults() {
 
   // Progress bar — show progress within the current (or just-completed) tier
   const tierForDisplay = newTier ?? prevTier ?? 4;
-  const tierKnown = TOWNS.filter(t => t.tier === tierForDisplay && knownLocations.includes(t.name)).length;
-  const tierTotal = TOWNS.filter(t => t.tier === tierForDisplay).length;
-  const pct = tierTotal > 0 ? Math.round((tierKnown / tierTotal) * 100) : 100;
+  const allInTierDisplay = TOWNS.filter(t => t.tier === tierForDisplay);
+  const tierTotal = allInTierDisplay.length;
+  const progressPts = allInTierDisplay.reduce((sum, t) => sum + (locationFamiliarity[t.name] ?? 0) / 2, 0);
+  const pct = tierTotal > 0 ? Math.round((progressPts / tierTotal) * 100) : 100;
   const levelNameForDisplay = PLAYER_LEVEL_NAMES[tierForDisplay];
 
   const lrLevelTitle = document.getElementById('lr-level-title');
@@ -5251,7 +6078,8 @@ async function showLearningResults() {
     ? (lang === 'he' ? levelNameForDisplay.he : levelNameForDisplay.en)
     : '';
 
-  document.getElementById('lr-progress-text').textContent = `${tierKnown} / ${tierTotal}`;
+  const famPts = allInTierDisplay.reduce((sum, t) => sum + (locationFamiliarity[t.name] ?? 0), 0);
+  document.getElementById('lr-progress-text').textContent = `${famPts} / ${tierTotal * 2}`;
   // Animate the bar from 0
   const fillEl = document.getElementById('lr-progress-fill');
   fillEl.style.width = '0%';
@@ -5264,11 +6092,25 @@ async function showLearningResults() {
     setTimeout(() => showLevelUpPopup(newTier), 600);
   }
 
-  document.getElementById('lr-list').innerHTML = learningSessionResults.map(r => {
-    const name = lang === 'he' ? r.town.nameHe : r.town.name;
-    return `<div class="lr-row" dir="${heDir}">
-      <span>${r.mastered ? '✅' : '❌'} ${name}</span>
-      <span class="${r.mastered ? 'lr-badge-mastered' : 'lr-badge-next'}">${r.mastered ? (lang === 'he' ? 'שולט!' : 'Mastered!') : (lang === 'he' ? 'בפעם הבאה' : 'Next Time')}</span>
+  // Familiarity list — same format as the Progress popup
+  const REGION_LABELS = {
+    en: { North: 'North', Center: 'Center', South: 'South', Jerusalem: 'Center', 'West Bank': 'Center' },
+    he: { North: 'צפון', Center: 'מרכז', South: 'דרום', Jerusalem: 'מרכז', 'West Bank': 'מרכז' },
+  };
+  const regionMap = REGION_LABELS[lang === 'he' ? 'he' : 'en'];
+  document.getElementById('lr-list').innerHTML = allInTierDisplay.map(t => {
+    const name        = lang === 'he' ? (t.nameHe || t.name) : t.name;
+    const fam         = locationFamiliarity[t.name] ?? 0;
+    const d1          = fam >= 1 ? (fam === 1 ? 'dot-yellow' : 'dot-green') : '';
+    const d2          = fam >= 2 ? 'dot-green' : '';
+    const regionLabel = regionMap[t.region] || t.region || '';
+    return `<div class="qp-row">
+      <span class="qp-town-name">${name}</span>
+      <span class="qp-region">${regionLabel}</span>
+      <span class="qp-fam-dots">
+        <span class="qp-fam-dot ${d1}"></span>
+        <span class="qp-fam-dot ${d2}"></span>
+      </span>
     </div>`;
   }).join('');
 
@@ -5282,10 +6124,9 @@ async function showLearningResults() {
     continueBtn.style.display = '';
     continueBtn.textContent = lang === 'he' ? '📚 המשך ללמוד' : '📚 Continue Learning';
   }
-  menuBtn.textContent = lang === 'he' ? '← תפריט' : '← Menu';
+  menuBtn.textContent = lang === 'he' ? 'תפריט ←' : '← Menu';
 
   document.getElementById('town-name').textContent = '';
-  document.getElementById('town-desc').textContent = '';
 
   document.getElementById('learning-results-panel').classList.add('show');
   document.getElementById('learning-hud').classList.remove('active');
@@ -5293,11 +6134,14 @@ async function showLearningResults() {
 }
 
 function showLevelUpPopup(newTier) {
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('learning_level_up', { new_tier: newTier ?? 'all_mastered' });
+  }
   const overlay = document.getElementById('lr-levelup-overlay');
   const isAllMastered = newTier === null;
   const heDir = lang === 'he' ? 'rtl' : 'ltr';
 
-  const nickname = document.getElementById('settings-nickname').value.trim() || '';
+  const nickname = window._userNickname || document.getElementById('settings-nickname').value.trim() || '';
   document.getElementById('lr-levelup-nickname').textContent = nickname;
 
   const titleEl = document.getElementById('lr-levelup-title');
@@ -5309,21 +6153,40 @@ function showLevelUpPopup(newTier) {
   nameEl.dir = heDir;
   closeEl.dir = heDir;
 
+  const waBtn = document.getElementById('lr-levelup-wa');
+  const waLabel = document.getElementById('lr-levelup-wa-label');
+
+  const emojiLeft = document.getElementById('lr-emoji-left');
+  const emojiRight = document.getElementById('lr-emoji-right');
+
+  // Helper: set emoji content (animation restart happens after overlay is shown)
+  function setEmojis(left, right) {
+    emojiLeft.textContent = left;
+    emojiRight.textContent = right;
+  }
+
   if (isAllMastered) {
     titleEl.textContent = lang === 'he' ? 'שלטת בהכל!' : 'All Mastered!';
-    document.querySelector('.lr-levelup-icon').textContent = '🏆';
+    setEmojis('🏆', '🏆');
     levelEl.textContent = lang === 'he' ? 'אלוף!' : 'Champion!';
     nameEl.textContent = '';
     closeEl.textContent = lang === 'he' ? '💪 יאללה!' : '💪 Let\'s Go!';
+    waBtn.style.display = 'none';
+    window._levelUpShareTier = null;
   } else {
     const levelName = PLAYER_LEVEL_NAMES[newTier];
+    const levelEmojiPairs = { 2: ['🦊','🏘️'], 3: ['🛰️','🧠'], 4: ['🥾','👑'], 5: ['🧔','🦯'] };
+    const pair = levelEmojiPairs[newTier] || ['🚀','🚀'];
     titleEl.textContent = lang === 'he' ? 'עלית רמה!' : 'Level Up!';
-    document.querySelector('.lr-levelup-icon').textContent = '🚀';
+    setEmojis(pair[0], pair[1]);
     levelEl.textContent = lang === 'he'
       ? `רמה ${newTier}` : `Level ${newTier}`;
-    nameEl.textContent = lang === 'he'
-      ? levelName.he : levelName.en;
+    nameEl.textContent = lang === 'he' ? levelName.he : levelName.en;
     closeEl.textContent = lang === 'he' ? '💪 יאללה!' : '💪 Let\'s Go!';
+    waBtn.style.display = 'flex';
+    waBtn.dir = heDir;
+    waLabel.textContent = lang === 'he' ? 'שתפ/י בוואטסאפ' : 'Share on WhatsApp';
+    window._levelUpShareTier = newTier;
   }
 
   // Spawn particles
@@ -5344,11 +6207,65 @@ function showLevelUpPopup(newTier) {
     particleContainer.appendChild(p);
   }
 
+  // Kill animations before showing
+  emojiLeft.style.animation = 'none';
+  emojiRight.style.animation = 'none';
+
   overlay.classList.add('show');
+
+  // Double-rAF: first frame renders with animation:none (visible, no motion),
+  // second frame clears inline style so CSS class animations restart cleanly
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      emojiLeft.style.animation = '';
+      emojiRight.style.animation = '';
+    });
+  });
 }
 
 function closeLevelUpPopup() {
   document.getElementById('lr-levelup-overlay').classList.remove('show');
+}
+
+function shareLevelUpWhatsApp() {
+  const level = window._levelUpShareTier;
+  if (!level || level < 2 || level > 5) return;
+  const url = window.location.origin + window.location.pathname;
+  const messages = {
+    2: {
+      he: '\u200F🚀 עליתי לרמה 2 בחידון ישראל של גילי!\n\u200Fאני עכשיו: שועל פריפריה 🦊🏘️\n\u200Fבואו לשחק: ' + url,
+      en: '🚀 I leveled up to Level 2 on Gilly\'s Israel Quiz!\nI\'m now: Periphery Fox 🦊🏘️\nPlay now: ' + url
+    },
+    3: {
+      he: '\u200F🚀 עליתי לרמה 3 בחידון ישראל של גילי!\n\u200Fאני עכשיו: מוח לווייני 🛰️🧠\n\u200Fבואו לשחק: ' + url,
+      en: '🚀 I leveled up to Level 3 on Gilly\'s Israel Quiz!\nI\'m now: Satellite Brain 🛰️🧠\nPlay now: ' + url
+    },
+    4: {
+      he: '\u200F🚀 עליתי לרמה 4 בחידון ישראל של גילי!\n\u200Fאני עכשיו: מלך השבילים 🥾👑\n\u200Fבואו לשחק: ' + url,
+      en: '🚀 I leveled up to Level 4 on Gilly\'s Israel Quiz!\nI\'m now: King of the Trails 🥾👑\nPlay now: ' + url
+    },
+    5: {
+      he: '\u200F🚀 עליתי לרמה 5 בחידון ישראל של גילי!\n\u200Fאני עכשיו: אגדת הארץ 🧔🦯\n\u200Fבואו לשחק: ' + url,
+      en: '🚀 I leveled up to Level 5 on Gilly\'s Israel Quiz!\nI\'m now: Legend of the Land 🧔🦯\nPlay now: ' + url
+    }
+  };
+  const msg = messages[level];
+  const text = lang === 'he' ? msg.he : msg.en;
+  window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('levelup_share_wa', { level: level });
+  }
+}
+
+let _pendingLevelUp = null; // { newLevel } — set after quiz game if level-up occurred
+
+function closeRecordPopup() {
+  document.getElementById('new-record-popup').classList.remove('show');
+  if (_pendingLevelUp !== null) {
+    const lvl = _pendingLevelUp;
+    _pendingLevelUp = null;
+    setTimeout(() => showLevelUpPopup(lvl), 300);
+  }
 }
 
 async function continueLearning() {
@@ -5446,7 +6363,6 @@ function startDailyChallenge() {
   const previewName = isHe ? _dcPreloadTown.nameHe : _dcPreloadTown.name;
   document.getElementById('town-name').textContent = previewName;
   document.getElementById('town-name').classList.add('blurred-location');
-  document.getElementById('town-desc').textContent = '';
   const mobEl = document.querySelector('#mobile-topbar-town .mob-town-text');
   mobEl.textContent = previewName;
   mobEl.classList.add('blurred-location');
@@ -5491,6 +6407,9 @@ function cancelDailyChallengeIntro() {
 }
 
 function startDailyChallengeGame() {
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('daily_challenge_start', {});
+  }
   closeDailyChallengeIntro();
 
   // Reuse the town and nearby point preloaded during the intro popup (to avoid
@@ -5534,6 +6453,7 @@ function startDailyChallengeGame() {
   // Hide overlay and results panels
   document.getElementById('overlay').style.display = 'none';
   document.getElementById('results-panel').className = '';
+  document.body.classList.remove('postgame');
   document.getElementById('scoreboard-panel').className = '';
   document.getElementById('btn-back').style.display = 'inline-block';
 
@@ -5551,7 +6471,6 @@ function startDailyChallengeGame() {
   const previewTownName = lang === 'he' ? town.nameHe : town.name;
   document.getElementById('town-name').textContent = previewTownName;
   document.getElementById('town-name').classList.add('blurred-location');
-  document.getElementById('town-desc').textContent = '';
   const mobPreviewEl = document.querySelector('#mobile-topbar-town .mob-town-text');
   mobPreviewEl.textContent = previewTownName;
   mobPreviewEl.classList.add('blurred-location');
@@ -5613,10 +6532,8 @@ function endDailyChallengePreview(town) {
 
   // Reveal the location name by removing the blur (step 3d)
   const townName = lang === 'he' ? town.nameHe : town.name;
-  const townDesc = lang === 'he' ? town.descHe : town.desc;
   document.getElementById('town-name').textContent = townName;
   document.getElementById('town-name').classList.remove('blurred-location');
-  document.getElementById('town-desc').textContent = townDesc;
   const mobRevealEl = document.querySelector('#mobile-topbar-town .mob-town-text');
   mobRevealEl.textContent = townName;
   mobRevealEl.classList.remove('blurred-location');
@@ -5649,26 +6566,30 @@ async function startLearning() {
   try {
     const { getDoc, doc } = window._fbFns;
     const userSnap = await getDoc(doc(window._fbDb, 'users', window._fbUser.uid));
-    knownLocations = userSnap.exists() ? (userSnap.data().knownLocations || []) : [];
+    if (userSnap.exists() && userSnap.data().locationFamiliarity) {
+      locationFamiliarity = { ...userSnap.data().locationFamiliarity };
+    }
   } catch (e) {
-    knownLocations = [];
-    console.error('Failed to load known locations:', e);
+    console.error('Failed to load locationFamiliarity:', e);
   }
 
-  const tier = getLearningTier();
+  const tier = getFamiliarityLevel();
   if (tier === null) {
     showFeedback(lang === 'he' ? '🏆 שלטת בכל המיקומים!' : '🏆 All locations mastered!', '#1a7f37');
     return;
   }
 
   const allInTier = TOWNS.filter(t => t.tier === tier);
-  learningSequence = allInTier.filter(t => !knownLocations.includes(t.name)).slice(0, LEARNING_SESSION_SIZE);
+  learningSequence = allInTier.filter(t => (locationFamiliarity[t.name] ?? 0) < 2).slice(0, LEARNING_SESSION_SIZE);
   if (learningSequence.length === 0) {
-    showFeedback(lang === 'he' ? '🎉 כל המיקומים ברמה זו ידועים!' : '🎉 All locations in this level known!', '#1a7f37');
+    showFeedback(lang === 'he' ? '🎉 כל המיקומים ברמה זו נלמדו!' : '🎉 All locations in this level fully learned!', '#1a7f37');
     return;
   }
 
   isLearningMode = true;
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('learning_mode_start', { tier });
+  }
   learningIdx = 0;
   learningAttempt = 0;
   learningSessionResults = [];
@@ -5678,6 +6599,7 @@ async function startLearning() {
 
   document.getElementById('overlay').style.display = 'none';
   document.getElementById('results-panel').className = '';
+  document.body.classList.remove('postgame');
   document.getElementById('learning-results-panel').className = '';
   document.getElementById('scoreboard-panel').className = '';
   document.getElementById('btn-back').style.display = 'inline-block';
@@ -5696,15 +6618,41 @@ async function startLearning() {
   loadLearningTown();
 }
 
-function startGame() {
-  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+async function startGame() {
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('quiz_game_start', { difficulty, region: region || 'all' });
+  }
+  // Load locationFamiliarity FIRST so weighted selection uses fresh data
+  if (window._fbUser && !window._fbUser.isAnonymous && window._fbFns && window._fbDb) {
+    try {
+      const { getDoc, doc } = window._fbFns;
+      const snap = await getDoc(doc(window._fbDb, 'users', window._fbUser.uid));
+      if (snap.exists() && snap.data().locationFamiliarity) {
+        locationFamiliarity = { ...snap.data().locationFamiliarity };
+      }
+    } catch (e) { console.error('Failed to load locationFamiliarity:', e); }
+  }
   const tierFilter = TOWNS.filter(t => t.tier <= DIFF[difficulty].maxTier);
   const regionFilter = REGION_GROUPS[region];
   const pool = regionFilter
     ? tierFilter.filter(t => regionFilter.includes(t.region))
     : tierFilter;
-  // If somehow fewer than 8 towns in pool, take all of them
-  sequence = shuffle(pool).slice(0, Math.min(8, pool.length));
+  // Phase 1: guarantee minimum from player's current level for progress
+  const F = { 0: 20, 1: 10, 2: 1 };
+  const playerTier = getFamiliarityLevel() ?? 4;
+  const effectiveTier = Math.min(playerTier, DIFF[difficulty].maxTier);
+  const tierPool = pool.filter(t => t.tier === effectiveTier);
+  const minGuaranteed = Math.min(2, tierPool.length);
+  const tierSelected = weightedSample(tierPool, minGuaranteed);
+  // Phase 2: fill remaining slots skewed toward difficulty-appropriate tiers
+  const tierSelectedSet = new Set(tierSelected.map(t => t.name));
+  const restPool = pool.filter(t => !tierSelectedSet.has(t.name));
+  const diffWeights = new Map(restPool.map(t => [
+    t.name, (F[locationFamiliarity[t.name] ?? 0]) * (TIER_DIFF_WEIGHT[difficulty][t.tier] ?? 1)
+  ]));
+  const remaining = weightedSample(restPool, 8 - tierSelected.length, diffWeights);
+  // Outer shuffle randomises round order
+  sequence = shuffle([...tierSelected, ...remaining]);
   roundCount = sequence.length;
   currentIdx = score = streak = 0;
   results = [];
@@ -5717,30 +6665,12 @@ function startGame() {
   }
   document.getElementById('overlay').style.display = 'none';
   document.getElementById('results-panel').className = '';
+  document.body.classList.remove('postgame');
   document.getElementById('scoreboard-panel').className = '';
   document.getElementById('btn-back').style.display = 'inline-block';
   const v = REGION_VIEWS[region];
   map.setView(v.center, v.zoom);
   loadTown();
-}
-
-let _pendingClickEvent = null;
-
-function cancelLocation() {
-  document.getElementById('confirm-popup').style.display = 'none';
-  _pendingClickEvent = null;
-}
-document.getElementById('confirm-popup').addEventListener('click', (e) => {
-  if (e.target === document.getElementById('confirm-popup')) cancelLocation();
-});
-
-function confirmLocation() {
-  document.getElementById('confirm-popup').style.display = 'none';
-  if (_pendingClickEvent) {
-    const e = _pendingClickEvent;
-    _pendingClickEvent = null;
-    processMapClick(e);
-  }
 }
 
 function onMapClick(e) {
@@ -5755,11 +6685,6 @@ function onMapClick(e) {
   if (waiting) return;
   if (isLearningMode) { handleLearningClick(e); return; }
 
-  _pendingClickEvent = e;
-  document.getElementById('confirm-popup').style.display = 'flex';
-}
-
-function processMapClick(e) {
   haptic(30); // subtle tap on pin placement
 
   const town = sequence[currentIdx];
@@ -5798,7 +6723,26 @@ function processMapClick(e) {
   streak = newStreak;
   score += scorePts + (newStreak >= 3 && perfect ? 10 : 0);
   results.push({ town, hit: perfect, distKm: distKm.toFixed(1), pts });
+  // Track locationFamiliarity for quiz mode (not daily/challenge)
+  if (!isDailyChallenge && !isLearningMode) {
+    const nearPerfect = perfect || (pts / DIFF[difficulty].maxPts >= 0.9);
+    if (nearPerfect) {
+      const cur = locationFamiliarity[town.name] ?? 0;
+      if (cur < 2) {
+        locationFamiliarity[town.name] = cur + 1;
+        // Mid-game save — fire and forget to preserve progress on exit
+        if (window._fbUser && !window._fbUser.isAnonymous && window._fbFns && window._fbDb) {
+          const { setDoc, doc } = window._fbFns;
+          setDoc(doc(window._fbDb, 'users', window._fbUser.uid),
+            { locationFamiliarity }, { merge: true }).catch(console.error);
+        }
+      }
+    }
+  }
   if (newStreak >= 3 && perfect) {
+    if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+      window._logEvent('streak_milestone', { streak: newStreak });
+    }
     showStreakBanner(newStreak);
   } else if (!perfect) {
     // Hide banner with fade-out animation on a non-close guess
@@ -5868,6 +6812,12 @@ function processMapClick(e) {
 function showResults() {
   const pct = (score / (roundCount * DIFF[difficulty].maxPts)) * 100;
   const hits = results.filter(r => r.hit).length;
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('quiz_game_complete', {
+      score: Math.floor(score), difficulty, region: region || 'all',
+      hits, rounds: roundCount
+    });
+  }
   document.getElementById('result-emoji').textContent = pct >= 80 ? '🏆' : pct >= 50 ? '🌟' : '📚';
   document.getElementById('result-title').textContent =
     pct >= 80 ? t('result_excellent') : pct >= 50 ? t('result_good') : t('result_practice');
@@ -5896,6 +6846,7 @@ function showResults() {
   document.getElementById('overlay').style.display = 'none';
   document.getElementById('results-card').dir = lang === 'he' ? 'rtl' : 'ltr';
   document.getElementById('results-panel').className = 'show';
+  document.body.classList.add('postgame');
   // Switch to street view so player can review mistakes with labels
   if (currentLayer === 'satellite') {
     toggleMapLayer(true); // suppress banner - this is for review, not cheating
@@ -5906,41 +6857,6 @@ function showResults() {
 setDiff('easy');
 setRegion('all');
 applyLang();
-
-function toggleFullscreen() {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen();
-  }
-}
-let userWantsFullscreen = false;
-
-document.addEventListener('fullscreenchange', function() {
-  const btn   = document.getElementById('menu-fullscreen-btn');
-  const enter = document.getElementById('fs-icon-enter');
-  const exit  = document.getElementById('fs-icon-exit');
-  if (document.fullscreenElement) {
-    userWantsFullscreen = true;
-    enter.style.display = 'none';
-    exit.style.display  = '';
-    btn.disabled = true;
-    btn.style.opacity = '0.4';
-    btn.style.cursor = 'default';
-  } else {
-    enter.style.display = '';
-    exit.style.display  = 'none';
-    btn.disabled = false;
-    btn.style.opacity = '';
-    btn.style.cursor = '';
-    if (!document.hidden) userWantsFullscreen = false;
-  }
-});
-
-// Re-enter fullscreen when the tablet screen wakes up, if it was active before
-document.addEventListener('visibilitychange', function() {
-  if (!document.hidden && userWantsFullscreen && !document.fullscreenElement) {
-    document.documentElement.requestFullscreen().catch(() => {});
-  }
-});
 
 // Detect and launch challenge mode if URL param is present
 _initChallengeMode();
@@ -5959,6 +6875,7 @@ function generateRandomNickname() {
 // ── FIREBASE AUTH & SCORING ────────────────────────────────────────────────
 
 let _authMode = 'signin'; // 'signin' | 'signup'
+let _pendingGoogleUser = null; // set while new Google user hasn't yet accepted terms
 
 // Called by the Firebase module once auth state changes
 window._onAuthChange = function(user) {
@@ -5967,7 +6884,7 @@ window._onAuthChange = function(user) {
   if (user) {
     label.textContent = user.displayName ? user.displayName.split(' ')[0] : 'Account';
     if (user.photoURL) {
-      avatar.innerHTML = `<img src="${user.photoURL}" alt="avatar"/>`;
+      avatar.innerHTML = `<img src="${esc(user.photoURL)}" alt="avatar"/>`;
     } else {
       avatar.innerHTML = '';
       avatar.textContent = (user.displayName || user.email || '?').charAt(0).toUpperCase();
@@ -5995,17 +6912,58 @@ window._onAuthChange = function(user) {
           if (!data.nickname) {
             const defaultNick = generateRandomNickname();
             await setDoc(doc(window._fbDb, 'users', user.uid), { nickname: defaultNick }, { merge: true });
+            window._userNickname = defaultNick;
+          } else {
+            window._userNickname = data.nickname;
+          }
+          // Load cumulative points (or migrate from familiarity-based level)
+          if (data.locationFamiliarity) {
+            locationFamiliarity = { ...data.locationFamiliarity };
+          }
+          if (typeof data.cumulativePoints === 'number') {
+            cumulativePoints = data.cumulativePoints;
+          } else {
+            // Migrate existing player: sum weighted familiarity across all tiers
+            // Familiarity 1 (partly) = 0.5 credit, familiarity 2 (full) = 1.0 credit
+            let migrationPts = 0;
+            for (let tier = 1; tier <= 4; tier++) {
+              const tierTowns = TOWNS.filter(t => t.tier === tier);
+              if (tierTowns.length === 0) continue;
+              const tierCredit = tierTowns.reduce((sum, t) => {
+                const fam = locationFamiliarity[t.name] ?? 0;
+                return sum + (fam >= 2 ? 1 : fam === 1 ? 0.5 : 0);
+              }, 0);
+              const tierProgress = tierCredit / tierTowns.length;
+              const basePts = LEVEL_POINTS[tier] || 0;
+              const nextPts = LEVEL_POINTS[Math.min(tier + 1, 5)] || basePts;
+              migrationPts += tierProgress * (nextPts - basePts);
+            }
+            cumulativePoints = Math.round(migrationPts);
+            await setDoc(doc(window._fbDb, 'users', user.uid), { cumulativePoints, level: getPlayerLevel() }, { merge: true });
+          }
+          // Set default difficulty based on player level (only when on the menu)
+          const onMenu = document.getElementById('menu-card')?.style.display !== 'none';
+          if (onMenu) {
+            const lvl = getPlayerLevel();
+            const defaultDiff = lvl <= 1 ? 'easy' : lvl === 2 ? 'medium' : 'hard';
+            setDiff(defaultDiff);
           }
         } else {
           // New user with no doc yet — create one with a default nickname
           const defaultNick = generateRandomNickname();
-          await setDoc(doc(window._fbDb, 'users', user.uid), { nickname: defaultNick }, { merge: true });
+          window._userNickname = defaultNick;
+          cumulativePoints = 0;
+          await setDoc(doc(window._fbDb, 'users', user.uid), { nickname: defaultNick, cumulativePoints: 0, level: 1 }, { merge: true });
+          // New user starts at level 1 → default to easy
+          const onMenu2 = document.getElementById('menu-card')?.style.display !== 'none';
+          if (onMenu2) setDiff('easy');
         }
       });
     });
   } else {
     avatar.innerHTML = ''; avatar.textContent = '👤';
     label.textContent = lang === 'he' ? 'התחברות' : 'Log in';
+    cumulativePoints = 0;
     closeAuthDropdown();
   }
 };
@@ -6014,10 +6972,14 @@ function handleAuthBtnClick() {
   if (window._fbUser) { toggleAuthDropdown(); } else { openLoginModal(); }
 }
 function toggleAuthDropdown() {
-  document.getElementById('auth-dropdown').classList.toggle('open');
+  const dd = document.getElementById('auth-dropdown');
+  const btn = document.getElementById('auth-btn');
+  dd.classList.toggle('open');
+  btn.setAttribute('aria-expanded', dd.classList.contains('open') ? 'true' : 'false');
 }
 function closeAuthDropdown() {
   document.getElementById('auth-dropdown').classList.remove('open');
+  document.getElementById('auth-btn').setAttribute('aria-expanded', 'false');
 }
 document.addEventListener('click', e => {
   const wrap = document.getElementById('auth-wrap');
@@ -6030,11 +6992,34 @@ function switchAccount() {
 }
 
 function openLoginModal() {
-  document.getElementById('login-modal').classList.add('open');
+  const modal = document.getElementById('login-modal');
+  modal.classList.add('open');
   document.getElementById('login-error').textContent = '';
+  trapFocus(modal);
 }
 function closeLoginModal() {
-  document.getElementById('login-modal').classList.remove('open');
+  const modal = document.getElementById('login-modal');
+  modal.classList.remove('open');
+  releaseFocus(modal);
+  if (_pendingGoogleUser) _cancelGoogleSignup(); // rolls back if terms not yet accepted
+  _resetGoogleSignupStep();
+}
+async function _cancelGoogleSignup() {
+  const user = _pendingGoogleUser;
+  _pendingGoogleUser = null;
+  if (!user) return;
+  try {
+    const { deleteDoc, doc } = await Promise.resolve(window._fbFns);
+    await deleteDoc(doc(window._fbDb, 'users', user.uid)).catch(() => {});
+    await user.delete();
+  } catch (e) { /* ignore — account may not have been fully created yet */ }
+}
+function _resetGoogleSignupStep() {
+  document.getElementById('google-signup-step').style.display = 'none';
+  document.getElementById('login-main-section').style.display = '';
+  document.getElementById('google-signup-eu').checked = false;
+  document.getElementById('google-signup-terms').checked = false;
+  document.getElementById('google-signup-error').textContent = '';
 }
 // Close on backdrop click
 document.getElementById('login-modal').addEventListener('click', e => {
@@ -6044,63 +7029,106 @@ document.getElementById('login-modal').addEventListener('click', e => {
 function toggleAuthMode() {
   _authMode = _authMode === 'signin' ? 'signup' : 'signin';
   const isSignup = _authMode === 'signup';
-  document.getElementById('login-name').style.display     = isSignup ? 'block' : 'none';
   document.getElementById('login-submit-btn').textContent = isSignup ? 'Create account' : 'Sign in';
   document.getElementById('login-toggle').innerHTML = isSignup
     ? `Already have an account? <a onclick="toggleAuthMode()">Sign in</a>`
     : `Don't have an account? <a onclick="toggleAuthMode()">Sign up</a>`;
   document.getElementById('login-error').textContent = '';
+  document.getElementById('signup-email-updates-row').classList.toggle('visible', isSignup);
+  document.getElementById('signup-terms-row').classList.toggle('visible', isSignup);
+  if (!isSignup) document.getElementById('signup-terms').checked = false;
 }
 
 async function signInGoogle() {
   const { GoogleAuthProvider, signInWithPopup } = window._fbFns;
+  const card = document.getElementById('login-card');
+  card.classList.add('google-pending');
   try {
     const provider = new GoogleAuthProvider();
-    await signInWithPopup(window._fbAuth, provider);
-    closeLoginModal();
-    // If the daily-percentile popup is open, refresh it now that user is logged in
-    if (_dpPendingScore !== null && document.getElementById('daily-percentile-popup').classList.contains('show')) {
-      showDailyPercentile(_dpPendingScore);
-    // If game just ended (scoreboard visible), save score and refresh leaderboard
-    } else if (document.getElementById('scoreboard-panel').classList.contains('show')) {
-      const hits = results.filter(r => r.pts >= 90).length;
-      await saveScore({ score, difficulty, region, rounds: roundCount, hits });
-      loadHistory();
-      loadScoreboard(score);
+    const result = await signInWithPopup(window._fbAuth, provider);
+    card.classList.remove('google-pending');
+    const { getDoc, doc } = await Promise.resolve(window._fbFns);
+    const snap = await getDoc(doc(window._fbDb, 'users', result.user.uid));
+    if (!snap.exists()) {
+      // New user — show profile completion step; track for rollback if closed without consent
+      _pendingGoogleUser = result.user;
+      _showGoogleSignupStep(result.user);
+    } else {
+      closeLoginModal();
+      await _postAuthActions();
     }
   } catch (e) {
+    card.classList.remove('google-pending');
     document.getElementById('login-error').textContent = e.message;
+  }
+}
+function _showGoogleSignupStep(user) {
+  document.getElementById('login-main-section').style.display = 'none';
+  document.getElementById('google-signup-step').style.display = 'flex';
+  document.getElementById('google-signup-btn').focus();
+}
+async function submitGoogleSignup() {
+  const errEl = document.getElementById('google-signup-error');
+  if (!document.getElementById('google-signup-terms').checked) {
+    errEl.textContent = 'Please agree to the Terms and Privacy Notice to continue.';
+    return;
+  }
+  const user = window._fbUser;
+  const emailUpdates = document.getElementById('google-signup-eu').checked;
+  try {
+    const { setDoc, doc } = await Promise.resolve(window._fbFns);
+    await setDoc(doc(window._fbDb, 'users', user.uid), { emailUpdates }, { merge: true });
+    _pendingGoogleUser = null;
+    closeLoginModal();
+    await _postAuthActions();
+  } catch (e) {
+    errEl.textContent = e.message;
+  }
+}
+async function _postAuthActions() {
+  if (window._pendingFactTown) {
+    const town = window._pendingFactTown;
+    window._pendingFactTown = null;
+    openFactModal(town);
+    return;
+  }
+  if (document.getElementById('quiz-progress-popup').classList.contains('show')) {
+    const hits = results.filter(r => r.pts >= 90).length;
+    await saveScore({ score, difficulty, region, rounds: roundCount, hits, results: [...results] });
+    loadHistory();
+    showQuizProgress(_qpPendingScore); // refresh with logged-in view
+    return;
+  }
+  if (_dpPendingScore !== null && document.getElementById('daily-percentile-popup').classList.contains('show')) {
+    showDailyPercentile(_dpPendingScore);
+  } else if (document.getElementById('scoreboard-panel').classList.contains('show')) {
+    const hits = results.filter(r => r.pts >= 90).length;
+    await saveScore({ score, difficulty, region, rounds: roundCount, hits, results: [...results] });
+    loadHistory();
+    loadScoreboard(score);
   }
 }
 
 async function submitEmailAuth() {
-  const { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } = window._fbFns;
+  const { createUserWithEmailAndPassword, signInWithEmailAndPassword } = window._fbFns;
   const email    = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
-  const name     = document.getElementById('login-name').value.trim();
   const errEl    = document.getElementById('login-error');
   errEl.textContent = '';
   if (!email || !password) { errEl.textContent = 'Please fill in all fields.'; return; }
   try {
     if (_authMode === 'signup') {
-      if (!name) { errEl.textContent = 'Please enter a display name.'; return; }
+      if (!document.getElementById('signup-terms').checked) { errEl.textContent = 'Please agree to the Terms and Privacy Notice to continue.'; return; }
       const cred = await createUserWithEmailAndPassword(window._fbAuth, email, password);
-      await updateProfile(cred.user, { displayName: name });
+      const emailUpdates = document.getElementById('signup-email-updates').checked;
+      const { setDoc, doc } = window._fbFns;
+      await setDoc(doc(window._fbDb, 'users', cred.user.uid), { emailUpdates }, { merge: true });
       window._onAuthChange(cred.user);
     } else {
       await signInWithEmailAndPassword(window._fbAuth, email, password);
     }
     closeLoginModal();
-    // If the daily-percentile popup is open, refresh it now that user is logged in
-    if (_dpPendingScore !== null && document.getElementById('daily-percentile-popup').classList.contains('show')) {
-      showDailyPercentile(_dpPendingScore);
-    // If game just ended (scoreboard visible), save score and refresh leaderboard
-    } else if (document.getElementById('scoreboard-panel').classList.contains('show')) {
-      const hits = results.filter(r => r.pts >= 90).length;
-      await saveScore({ score, difficulty, region, rounds: roundCount, hits });
-      loadHistory();
-      loadScoreboard(score);
-    }
+    await _postAuthActions();
   } catch (e) {
     const msgs = {
       'auth/email-already-in-use': 'Email already in use.',
@@ -6115,6 +7143,63 @@ async function submitEmailAuth() {
 async function signOutUser() {
   const { signOut } = window._fbFns;
   await signOut(window._fbAuth);
+}
+
+async function saveEmailUpdatesPref() {
+  if (!window._fbUser) return;
+  const val = document.getElementById('settings-email-updates').checked;
+  const { setDoc, doc } = window._fbFns;
+  await setDoc(doc(window._fbDb, 'users', window._fbUser.uid), { emailUpdates: val }, { merge: true });
+}
+
+// ── DELETE ACCOUNT ────────────────────────────────────────────────────────
+function showDeleteConfirm() {
+  document.getElementById('settings-delete-confirm').classList.add('visible');
+}
+function hideDeleteConfirm() {
+  document.getElementById('settings-delete-confirm').classList.remove('visible');
+}
+
+async function deleteAccount() {
+  const user = window._fbUser;
+  if (!user) return;
+
+  const yesBtn = document.getElementById('settings-delete-yes');
+  yesBtn.disabled = true;
+  yesBtn.textContent = '…';
+
+  try {
+    const { deleteDoc, writeBatch, deleteUser, collection, query, where, getDocs, doc } = window._fbFns;
+    const db  = window._fbDb;
+    const uid = user.uid;
+
+    // Delete all docs in 'scores' where uid matches
+    const scoresSnap = await getDocs(query(collection(db, 'scores'), where('uid', '==', uid)));
+    const batch1 = writeBatch(db);
+    scoresSnap.forEach(d => batch1.delete(d.ref));
+    await batch1.commit();
+
+    // Delete all docs in 'daily_scores' where uid matches
+    const dailySnap = await getDocs(query(collection(db, 'daily_scores'), where('uid', '==', uid)));
+    const batch2 = writeBatch(db);
+    dailySnap.forEach(d => batch2.delete(d.ref));
+    await batch2.commit();
+
+    // Delete user profile doc
+    await deleteDoc(doc(db, 'users', uid));
+
+    // Delete Firebase Auth account — triggers onAuthStateChanged → UI resets
+    await deleteUser(user);
+
+    closeSettingsModal();
+  } catch (e) {
+    console.error('deleteAccount failed:', e);
+    const yesBtn = document.getElementById('settings-delete-yes');
+    yesBtn.disabled = false;
+    yesBtn.textContent = lang === 'he' ? 'מחיקה' : 'Delete';
+    document.getElementById('settings-delete-confirm-msg').textContent =
+      lang === 'he' ? 'שגיאה. נסה שוב.' : 'Error. Please try again.';
+  }
 }
 
 // ── SAVE SCORE TO FIRESTORE ───────────────────────────────────────────────
@@ -6134,24 +7219,40 @@ async function saveScore(scoreData) {
       timestamp:   serverTimestamp(),
     });
 
-    // Update highest_score in users doc if this score beats it
+    // Update highest_score and cumulative points in users doc
     const { getDoc, setDoc, doc } = window._fbFns;
     const userRef  = doc(window._fbDb, 'users', window._fbUser.uid);
     const userSnap = await getDoc(userRef);
-    const current  = userSnap.exists() ? (userSnap.data().highest_score || 0) : 0;
+    const userData = userSnap.exists() ? userSnap.data() : {};
+    const current  = userData.highest_score || 0;
     const isNewRecord = scoreData.score > current;
-    // Ensure knownLocations is loaded so getLearningTier() returns the correct level
-    if (userSnap.exists() && userSnap.data().knownLocations) {
-      knownLocations = userSnap.data().knownLocations;
-    }
-    const tier = getLearningTier() || 4;
-    if (isNewRecord) {
-      await setDoc(userRef, { highest_score: scoreData.score, level: tier }, { merge: true });
+    const oldLevel = getPlayerLevel();
+    const prevCumulative = cumulativePoints;
+    // Level 3+ players: non-tier-3/4 locations earn only 10% cumulative points
+    const roundResults = scoreData.results || [];
+    if (oldLevel >= 3 && roundResults.length) {
+      let cumulativeAdd = 0;
+      for (const r of roundResults) {
+        const tier = r.town && r.town.tier;
+        const factor = (tier === 3 || tier === 4) ? 1 : 0.1;
+        cumulativeAdd += r.pts * factor;
+      }
+      cumulativePoints += Math.round(cumulativeAdd);
     } else {
-      await setDoc(userRef, { level: tier }, { merge: true });
+      cumulativePoints += scoreData.score;
+    }
+    const newLevel = getPlayerLevel();
+    const isLevelUp = newLevel > oldLevel;
+    const updates = { level: newLevel, cumulativePoints, locationFamiliarity };
+    if (isNewRecord) updates.highest_score = scoreData.score;
+    try {
+      await setDoc(userRef, updates, { merge: true });
+    } catch (saveErr) {
+      cumulativePoints = prevCumulative; // rollback on save failure
+      throw saveErr;
     }
 
-    return { ok: true, isNewRecord };
+    return { ok: true, isNewRecord, isLevelUp, newLevel: isLevelUp ? newLevel : null };
   } catch (e) { console.error('Save score failed:', e); return { ok: false, isNewRecord: false }; }
 }
 
@@ -6182,10 +7283,10 @@ async function loadHistory() {
         : '—';
       return `<div class="history-row">
         <div>
-          <div style="font-weight:600">${d.hits}/${d.rounds} correct</div>
-          <div class="h-meta">${diffLabel[d.difficulty] || d.difficulty} · ${regionLabel[d.region] || d.region} · ${date}</div>
+          <div style="font-weight:600">${esc(String(d.hits))}/${esc(String(d.rounds))} correct</div>
+          <div class="h-meta">${diffLabel[d.difficulty] || esc(String(d.difficulty))} · ${regionLabel[d.region] || esc(String(d.region))} · ${esc(date)}</div>
         </div>
-        <div class="h-score">${d.score} pts</div>
+        <div class="h-score">${esc(String(d.score))} pts</div>
       </div>`;
     }).join('');
     section.classList.add('show');
@@ -6248,8 +7349,9 @@ function launchConfetti() {
 }
 
 // ── SCOREBOARD ────────────────────────────────────────────────────────────
-let _sbData = null;   // cached scoreboard state for view toggling
-let _sbTop5  = false; // true when Top 5 view is active
+let _sbData      = null;   // cached scoreboard state for view toggling
+let _sbTop5      = false;  // true when Top 5 view is active
+let _sbShareData = null;   // cached data for share button
 
 function renderPlayerRow(p, globalRank) {
   let rankHtml;
@@ -6260,12 +7362,14 @@ function renderPlayerRow(p, globalRank) {
 
   const lvl = PLAYER_LEVEL_NAMES[p.level] || PLAYER_LEVEL_NAMES[1];
   const lvlText = lang === 'he' ? lvl.he : lvl.en;
+  const SB_LEVEL_EMOJIS = { 1: '🚗🗺️', 2: '🦊🏘️', 3: '🛰️🧠', 4: '🥾👑', 5: '🧔🦯' };
+  const lvlEmoji = SB_LEVEL_EMOJIS[p.level] || '🚗🗺️';
   return `
     <div class="sb-row ${p.isMe ? 'sb-me' : ''}">
       ${rankHtml}
       <span class="sb-name">
-        <span class="sb-name-text">${p.isMe ? `<strong>${p.name}</strong>` : p.name}</span>
-        <span class="sb-level-badge">${lvlText}</span>
+        <span class="sb-name-text">${p.isMe ? `<strong>${esc(p.name)}</strong>` : esc(p.name)}</span>
+        <span class="sb-level-badge">${lvlEmoji} ${lvlText}</span>
       </span>
       <span class="sb-score">${p.score}</span>
     </div>`;
@@ -6323,6 +7427,20 @@ function toggleTop5View() {
   }
 }
 
+function shareLeaderboardScore() {
+  if (!_sbShareData) return;
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('leaderboard_share', {});
+  }
+  const { myScore, topPct, showTopPct } = _sbShareData;
+  const url = 'https://gilly.co.il';
+  const placeStr = showTopPct ? `Top ${topPct}%` : '';
+  const text = lang === 'he'
+    ? `\u200Fשיחקתי בחידון ישראל של גילי וקיבלתי ${myScore} נקודות${placeStr ? ` (${placeStr})` : ''} 🇮🇱\nשחק/י גם: ${url}`
+    : `I scored ${myScore} pts${placeStr ? ` (${placeStr})` : ''} on Gilly's Israel Quiz! 🇮🇱\nPlay now: ${url}`;
+  window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+}
+
 // ── Daily Challenge score saving & percentile display ─────────────────────
 
 async function saveDailyScore(myScore) {
@@ -6365,7 +7483,12 @@ async function showDailyPercentile(myScore) {
     const msg = lang === 'he'
       ? `🗺️ גילי – אתגר יומי\nניקוד: ${Math.floor(myScore)} נקודות${extra ? ' | ' + extra : ''}\nשחקו גם: ${_gameUrl}`
       : `🗺️ Gilly's Israel Quiz – Daily Challenge\nScore: ${Math.floor(myScore)} pts${extra ? ' | ' + extra : ''}\nPlay now: ${_gameUrl}`;
-    shareBtnEl.onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+    shareBtnEl.onclick = () => {
+      if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+        window._logEvent('daily_challenge_share', {});
+      }
+      window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+    };
   }
   _setShare(null); // initial: score only, updated per branch below
 
@@ -6383,9 +7506,11 @@ async function showDailyPercentile(myScore) {
     _dpPendingScore = myScore;
     pctVal.textContent  = '🔒';
     pctLbl.textContent  = '';
-    const loginWord = lang === 'he' ? 'התחבר' : 'Log in';
-    const restOfMsg = lang === 'he' ? ' כדי לראות את הדירוג שלך' : ' to see how you rank';
-    msgEl.innerHTML = `<a id="dp-login-link" style="cursor:pointer;color:#1a6fd4;text-decoration:underline">${loginWord}</a>${restOfMsg}`;
+    const dpIsHe   = lang === 'he';
+    const hookText = dpIsHe ? 'איפה אתה בדירוג?' : 'Where do you rank?';
+    const loginWord = dpIsHe ? 'התחבר ←' : 'Log in →';
+    const hookDir  = dpIsHe ? 'rtl' : 'ltr';
+    msgEl.innerHTML = `<div dir="${hookDir}" style="font-weight:800;font-size:1.05rem;color:var(--text);margin-bottom:6px">${hookText}</div><button id="dp-login-link" class="sb-guest-cta" dir="${hookDir}">${loginWord}</button>`;
     document.getElementById('dp-login-link').onclick = openLoginModal;
     countEl.textContent = '';
     ring.style.background = 'conic-gradient(#e8eaed 360deg, #e8eaed 0deg)';
@@ -6464,26 +7589,45 @@ async function showDailyPercentile(myScore) {
 }
 
 async function loadScoreboard(myScore) {
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('leaderboard_reached', {});
+  }
   const section = document.getElementById('scoreboard-panel');
   const list    = document.getElementById('scoreboard-list');
   const guest   = document.getElementById('scoreboard-guest');
   const top5Btn = document.getElementById('sb-top5-btn');
   section.classList.add('show');
   list.innerHTML = '';
-  _sbData  = null;
-  _sbTop5  = false;
+  _sbData      = null;
+  _sbTop5      = false;
+  _sbShareData = null;
   top5Btn.classList.remove('active');
   top5Btn.innerHTML = '▲ Top 10';
+  document.getElementById('sb-share-btn').style.display = 'none';
 
   // Update lang labels
   document.getElementById('scoreboard-title').innerHTML = '<span style="-webkit-text-fill-color:initial;background:none">🏆</span> ' + (lang === 'he' ? 'לוח תוצאות' : 'Leaderboard');
-  document.getElementById('sb-signin-link').textContent      = lang === 'he' ? 'התחברות' : 'Sign in';
-  document.getElementById('sb-signin-text').textContent      = lang === 'he' ? ' כדי לראות את לוח התוצאות' : ' to see the leaderboard';
+  const isHe = lang === 'he';
+  document.getElementById('sb-signin-link').textContent = isHe ? 'התחבר ←' : 'Sign in →';
+  document.getElementById('sb-signin-link').dir         = isHe ? 'rtl' : 'ltr';
+  document.getElementById('sb-guest-hook').textContent  = isHe ? 'איפה אתה בדירוג?' : 'Where do you rank?';
+  document.getElementById('sb-guest-hook').dir          = isHe ? 'rtl' : 'ltr';
+  document.getElementById('sb-guest-sub').textContent   = isHe ? 'התחבר כדי לגלות את המיקום שלך.' : 'Sign in to reveal your place.';
+  document.getElementById('sb-guest-sub').dir           = isHe ? 'rtl' : 'ltr';
 
   if (!window._fbUser) {
     list.style.display  = 'none';
     guest.style.display = 'block';
     top5Btn.style.display = 'none';
+    // Generate blurred fake rows to tease leaderboard
+    const blurEl = document.getElementById('sb-guest-blur');
+    blurEl.dir = isHe ? 'rtl' : 'ltr';
+    const fakeNames = isHe
+      ? ['שחקן מסתורי', 'גיאוגרף מומחה', 'נווט אלוף']
+      : ['Mystery Player', 'Geo Expert', 'Top Navigator'];
+    const fakeScores = [4850, 4620, 4510];
+    const medals = ['🥇', '🥈', '🥉'];
+    blurEl.innerHTML = fakeNames.map((n, i) => `<div class="sb-row"><span class="sb-rank ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${medals[i] || (i+1)}</span><div class="sb-name"><span class="sb-name-text">${n}</span></div><span class="sb-score">${fakeScores[i]}</span></div>`).join('');
     return;
   }
   guest.style.display = 'none';
@@ -6534,12 +7678,14 @@ async function loadScoreboard(myScore) {
     const topPct           = showTopPct ? Math.max(1, Math.ceil((currentScoreRank / totalForRank) * 100)) : null;
 
     // Player's current level
-    const myLevel = myIdx !== -1 ? players[myIdx].level : (getLearningTier() || 4);
+    const myLevel = myIdx !== -1 ? players[myIdx].level : getPlayerLevel();
     const myLvl   = PLAYER_LEVEL_NAMES[myLevel] || PLAYER_LEVEL_NAMES[1];
-    const myLvlText = lang === 'he' ? myLvl.he : myLvl.en;
+    const SB_MY_EMOJIS = { 1: '🚗🗺️', 2: '🦊🏘️', 3: '🛰️🧠', 4: '🥾👑', 5: '🧔🦯' };
+    const myLvlEmoji = SB_MY_EMOJIS[myLevel] || '🚗🗺️';
+    const myLvlText = (myLvlEmoji + ' ') + (lang === 'he' ? myLvl.he : myLvl.en);
 
     // Player's nickname
-    const myName = myNickname || window._fbUser?.displayName?.split(' ')[0] || (lang === 'he' ? 'שחקן אנונימי' : 'Anonymous');
+    const myName = myNickname || window._userNickname || (lang === 'he' ? 'שחקן אנונימי' : 'Anonymous');
 
     // Place label: percentage if enough players, otherwise M/N
     const placeLabel = showTopPct
@@ -6550,7 +7696,7 @@ async function loadScoreboard(myScore) {
     const summaryHtml = `
       <div class="sb-summary">
         <div class="sb-summary-left">
-          <div class="sb-summary-name">${myName}</div>
+          <div class="sb-summary-name">${esc(myName)}</div>
           <div class="sb-level-badge">${myLvlText}</div>
         </div>
         <div class="sb-summary-right">
@@ -6565,8 +7711,14 @@ async function loadScoreboard(myScore) {
     // Store data for view toggling
     _sbData = { players, summaryHtml, insertIdx };
 
-    // Show Top 5 button now that data is loaded
+    // Store data for sharing
+    _sbShareData = { myScore, rank: currentScoreRank, totalForRank, topPct, showTopPct, myName, myLvlText };
+
+    // Show Top 5 button and share button now that data is loaded
     top5Btn.style.display = 'inline-block';
+    const shareBtnEl = document.getElementById('sb-share-btn');
+    shareBtnEl.style.display = 'inline-flex';
+    shareBtnEl.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> ${lang === 'he' ? 'שתף' : 'Share'}`;
 
     // Render scrollable 100-score view
     list.innerHTML = renderScrollableView();
@@ -6583,6 +7735,108 @@ async function loadScoreboard(myScore) {
     list.innerHTML = `<div style="color:var(--muted);font-size:0.82rem;text-align:center;padding:8px 0">${lang === 'he' ? 'שגיאה בטעינה' : 'Could not load'}</div>`;
   }
 }
+// ── QUIZ PROGRESS POPUP ───────────────────────────────────────────────────
+let _qpPendingScore = null;
+
+function showQuizProgress(pendingScore) {
+  _qpPendingScore = pendingScore;
+  const isHe = lang === 'he';
+  const dir  = isHe ? 'rtl' : 'ltr';
+  const isLoggedIn = window._fbUser && !window._fbUser.isAnonymous;
+
+  document.getElementById('quiz-progress-card').dir = dir;
+  document.getElementById('qp-auth').style.display  = isLoggedIn ? '' : 'none';
+  document.getElementById('qp-guest').style.display = isLoggedIn ? 'none' : 'flex';
+
+  if (isLoggedIn) {
+    const nick = window._userNickname || document.getElementById('settings-nickname').value.trim() || generateRandomNickname();
+    document.getElementById('qp-nickname').textContent = nick;
+
+    const lvl      = getPlayerLevel();
+    const lvlNames = PLAYER_LEVEL_NAMES[lvl];
+    document.getElementById('qp-level-title').innerHTML = isHe
+      ? `<span class="qp-level-word">רמה</span><span class="qp-level-num">${lvl}</span>`
+      : `<span class="qp-level-word">LEVEL</span><span class="qp-level-num">${lvl}</span>`;
+    document.getElementById('qp-level-name').textContent  = lvlNames ? (isHe ? lvlNames.he : lvlNames.en) : '';
+
+    const currentThreshold = LEVEL_POINTS[lvl] || 0;
+    const nextThreshold    = LEVEL_POINTS[Math.min(lvl + 1, 5)] || currentThreshold;
+    const range            = nextThreshold - currentThreshold;
+    const pct              = lvl >= 5 ? 100 : (range > 0 ? Math.min(100, Math.round((cumulativePoints - currentThreshold) / range * 100)) : 100);
+
+    const fillEl = document.getElementById('qp-progress-fill');
+    fillEl.style.width = '0%';
+    requestAnimationFrame(() => { requestAnimationFrame(() => { fillEl.style.width = pct + '%'; }); });
+
+    const qpEmojiPairs = { 1: ['🚗','🗺️'], 2: ['🦊','🏘️'], 3: ['🛰️','🧠'], 4: ['🥾','👑'], 5: ['🧔','🦯'] };
+    const qpPair = qpEmojiPairs[lvl] || ['🚗','🗺️'];
+    const qpLeft = document.getElementById('qp-emoji-left');
+    const qpRight = document.getElementById('qp-emoji-right');
+    qpLeft.textContent = qpPair[0];
+    qpRight.textContent = qpPair[1];
+    // Reset animations
+    qpLeft.style.animation = 'none';
+    qpRight.style.animation = 'none';
+    qpLeft.classList.remove('lr-emoji-left');
+    qpRight.classList.remove('lr-emoji-right');
+
+    // Show points progress instead of known places table
+    const ptsDisplay = lvl >= 5
+      ? (isHe ? `${cumulativePoints.toLocaleString()} נקודות` : `${cumulativePoints.toLocaleString()} pts`)
+      : (isHe ? `${cumulativePoints.toLocaleString()} / ${nextThreshold.toLocaleString()}` : `${cumulativePoints.toLocaleString()} / ${nextThreshold.toLocaleString()}`);
+    document.getElementById('qp-list').innerHTML = `<div style="text-align:center;padding:12px 0;font-size:0.95rem;color:var(--muted)">${ptsDisplay}</div>`;
+
+    // Recommended difficulty tip
+    const recDiff = lvl === 1 ? 'easy' : lvl === 2 ? 'medium' : 'hard';
+    const diffTipEl = document.getElementById('qp-diff-tip');
+    if (difficulty !== recDiff) {
+      const DIFF_LABELS = { easy: { en: 'Easy', he: 'קל' }, medium: { en: 'Medium', he: 'בינוני' }, hard: { en: 'Hard', he: 'קשה' } };
+      const lbl = DIFF_LABELS[recDiff];
+      if (isHe) {
+        diffTipEl.textContent = `רמת משחק מומלצת: ${lbl.he}`;
+        diffTipEl.dir = 'rtl';
+      } else {
+        diffTipEl.textContent = `Recommended game difficulty: ${lbl.en}`;
+        diffTipEl.dir = 'ltr';
+      }
+      diffTipEl.classList.add('show');
+    } else {
+      diffTipEl.classList.remove('show');
+    }
+
+    document.getElementById('qp-scores-btn').textContent = isHe ? '🏆 לוח תוצאות' : '🏆 View Scores';
+    document.getElementById('qp-menu-btn').textContent   = isHe ? 'תפריט ←' : '← Menu';
+  } else {
+    const gTitle = document.getElementById('qp-guest-title');
+    gTitle.textContent = isHe ? 'התחבר כדי לעקוב אחר ההתקדמות במשחק' : 'Login to track game progress';
+    gTitle.dir = dir;
+    const signinBtn = document.getElementById('qp-signin-btn');
+    signinBtn.textContent = isHe ? 'התחבר ←' : 'Sign in →';
+    signinBtn.dir = dir;
+    document.getElementById('qp-guest-skip-btn').textContent = isHe ? 'המשך ללא חשבון' : 'Continue without account';
+  }
+
+  document.getElementById('quiz-progress-popup').classList.add('show');
+
+  // Trigger emoji animations now that popup is visible
+  const qpL = document.getElementById('qp-emoji-left');
+  const qpR = document.getElementById('qp-emoji-right');
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      qpL.style.animation = '';
+      qpL.classList.add('lr-emoji-left');
+      qpR.style.animation = '';
+      qpR.classList.add('lr-emoji-right');
+    });
+  });
+}
+
+function closeQuizProgress() {
+  document.getElementById('quiz-progress-popup').classList.remove('show');
+  loadScoreboard(_qpPendingScore);
+  _qpPendingScore = null;
+}
+
 const _origShowResults = showResults;
 showResults = async function() {
   _origShowResults();
@@ -6595,6 +7849,9 @@ showResults = async function() {
   // ── Daily Challenge: save score anonymously and show percentile popup ──
   if (isDailyChallenge) {
     document.getElementById('history-section').classList.remove('show');
+    if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+      window._logEvent('daily_challenge_complete', { score: Math.floor(score) });
+    }
     showDailyPercentile(score);
     return;
   }
@@ -6606,15 +7863,21 @@ showResults = async function() {
   recPopup.classList.remove('show');
 
   if (window._fbUser) {
-    const result = await saveScore({ score, difficulty, region, rounds: roundCount, hits });
+    const result = await saveScore({ score, difficulty, region, rounds: roundCount, hits, results: [...results] });
     if (result?.ok) {
       if (result.isNewRecord) {
+        if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+          window._logEvent('new_high_score', { score: Math.floor(score), difficulty, region: region || 'all' });
+        }
         recScore.textContent = `${score} ${lang === 'he' ? 'נקודות' : 'pts'}`;
         recSub.textContent = lang === 'he'
           ? `השגת שיא חדש של ${score} נקודות!`
           : `You beat your best with ${score} pts!`;
+        if (result.isLevelUp) _pendingLevelUp = result.newLevel;
         recPopup.classList.add('show');
         launchConfetti();
+      } else if (result.isLevelUp) {
+        setTimeout(() => showLevelUpPopup(result.newLevel), 300);
       }
     }
     loadHistory();
@@ -6622,8 +7885,8 @@ showResults = async function() {
     document.getElementById('history-section').classList.remove('show');
   }
 
-  // Always show scoreboard (sign-in prompt for guests)
-  loadScoreboard(score);
+  // Show quiz progress popup before scoreboard
+  showQuizProgress(score);
 };
 
 // ── SETTINGS ──────────────────────────────────────────────────────────────
@@ -6651,7 +7914,9 @@ function selectSettingsLang(l) {
 async function openSettingsModal() {
   closeAuthDropdown();
   document.getElementById('settings-save-msg').textContent = '';
-  document.getElementById('settings-modal').classList.add('open');
+  const settingsModal = document.getElementById('settings-modal');
+  settingsModal.classList.add('open');
+  trapFocus(settingsModal);
   _settingsLoading = true;
 
   try {
@@ -6666,15 +7931,19 @@ async function openSettingsModal() {
             nick = generateRandomNickname();
             setDoc(doc(window._fbDb, 'users', window._fbUser.uid), { nickname: nick }, { merge: true });
           }
+          window._userNickname = nick;
           document.getElementById('settings-nickname').value = nick;
           selectGender(data.gender || 'male');
           selectSettingsLang(data.language || lang);
+          document.getElementById('settings-email-updates').checked = data.emailUpdates === true;
         } else {
           const nick = generateRandomNickname();
+          window._userNickname = nick;
           document.getElementById('settings-nickname').value = nick;
           setDoc(doc(window._fbDb, 'users', window._fbUser.uid), { nickname: nick }, { merge: true });
           selectGender('male');
           selectSettingsLang(lang);
+          document.getElementById('settings-email-updates').checked = false;
         }
       } catch(e) {
         // Fall back to current in-memory values
@@ -6692,7 +7961,22 @@ async function openSettingsModal() {
 }
 
 function closeSettingsModal() {
-  document.getElementById('settings-modal').classList.remove('open');
+  const modal = document.getElementById('settings-modal');
+  modal.classList.remove('open');
+  releaseFocus(modal);
+  hideDeleteConfirm();
+}
+function openPrivacyModal() {
+  document.getElementById('privacy-modal').classList.add('open');
+}
+function closePrivacyModal() {
+  document.getElementById('privacy-modal').classList.remove('open');
+}
+function openTermsModal() {
+  document.getElementById('terms-modal').classList.add('open');
+}
+function closeTermsModal() {
+  document.getElementById('terms-modal').classList.remove('open');
 }
 document.getElementById('settings-modal').addEventListener('click', e => {
   if (e.target === document.getElementById('settings-modal')) closeSettingsModal();
@@ -6745,6 +8029,7 @@ async function saveSettings() {
 
   try {
     const { setDoc, doc } = window._fbFns;
+    window._userNickname = nickname;
     await setDoc(doc(window._fbDb, 'users', window._fbUser.uid), {
       nickname:    nickname,
       gender:      _selectedGender || null,
@@ -6767,7 +8052,9 @@ async function saveSettings() {
 
 /* ── SHARE ──────────────────────────────────────────────────────────────── */
 function openSharePopup() {
-  document.getElementById('share-popup').classList.add('open');
+  const shareModal = document.getElementById('share-popup');
+  shareModal.classList.add('open');
+  trapFocus(shareModal);
   document.getElementById('share-copied-toast').classList.remove('show');
   document.getElementById('share-card').dir = lang === 'he' ? 'rtl' : 'ltr';
   // Reset challenge section
@@ -6775,10 +8062,17 @@ function openSharePopup() {
   document.getElementById('challenge-link-area').style.display = 'none';
   document.getElementById('challenge-search-input').value = '';
   _hideChallengeDropdown();
+
+  // Analytics: track share button usage — logged-in (non-anonymous) users only
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('share_menu_open', { source: 'main_menu' });
+  }
 }
 
 function closeSharePopup() {
-  document.getElementById('share-popup').classList.remove('open');
+  const shareModal = document.getElementById('share-popup');
+  shareModal.classList.remove('open');
+  releaseFocus(shareModal);
 }
 
 function shareWhatsApp() {
@@ -6870,6 +8164,9 @@ function _getChallengeUrl(town) {
 
 function shareChallengeCreate(method) {
   if (!challengePickedTown) return;
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('challenge_share_create', { method });
+  }
   const url = _getChallengeUrl(challengePickedTown);
   const townName = lang === 'he' ? challengePickedTown.nameHe : challengePickedTown.name;
   if (method === 'wa') {
@@ -6919,8 +8216,11 @@ function showChallengeIntro() {
 }
 
 function startChallengeGame() {
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('challenge_accepted', {});
+  }
   document.getElementById('challenge-intro').classList.remove('open');
-  difficulty = 'easy';
+  difficulty = 'medium';
   region = 'all';
   sequence = [_challengeTown];
   roundCount = 1;
@@ -6940,6 +8240,7 @@ function startChallengeGame() {
 
   if (currentLayer === 'street') toggleMapLayer(true);
   document.getElementById('results-panel').className = '';
+  document.body.classList.remove('postgame');
   document.getElementById('scoreboard-panel').className = '';
 
   const v = REGION_VIEWS['all'];
@@ -7003,6 +8304,9 @@ function showChallengeResult() {
 
 function shareChallengeResult(method) {
   if (!_challengeResult || !_challengeTown) return;
+  if (window._fbUser && !window._fbUser.isAnonymous && window._logEvent) {
+    window._logEvent('challenge_share_result', { method });
+  }
   const { distKm, perfect } = _challengeResult;
   const url = _getChallengeUrl(_challengeTown);
   const townName = lang === 'he' ? _challengeTown.nameHe : _challengeTown.name;
