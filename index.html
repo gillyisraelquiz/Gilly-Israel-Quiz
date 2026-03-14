@@ -32,6 +32,12 @@
 }
 </script>
 <link rel="icon" type="image/png" href="logo_head.png"/>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1a6fd4">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gilly">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Alef:wght@400;700&family=Playfair+Display:wght@700;900&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet"/>
@@ -3410,6 +3416,77 @@
       transition-duration: 0.01ms !important;
     }
   }
+
+  /* ── PWA INSTALL PROMPT ───────────────────────────────────── */
+  #pwa-install-overlay {
+    display:none; position:fixed; inset:0; z-index:10200;
+    background:rgba(0,0,0,0.55); backdrop-filter:blur(4px);
+    align-items:center; justify-content:center;
+  }
+  #pwa-install-overlay.open { display:flex; }
+  #pwa-install-card {
+    background:var(--surface); border-radius:20px;
+    padding:32px 28px 24px; width:min(380px, 92vw);
+    box-shadow:0 24px 60px rgba(0,0,0,0.25);
+    display:flex; flex-direction:column; align-items:center; gap:14px;
+    animation:loginPop 0.28s cubic-bezier(.34,1.4,.64,1);
+    position:relative; text-align:center;
+  }
+  .pwa-logo-wrap {
+    position:relative; width:80px; height:80px; margin-bottom:4px;
+  }
+  .pwa-logo-wrap .pwa-icon {
+    width:80px; height:80px; object-fit:contain;
+    animation:ciLogoFloat 2.6s ease-in-out infinite;
+  }
+  .pwa-logo-wrap .ci-spark {
+    position:absolute; font-size:13px; line-height:1;
+    animation:ciSpark 2.6s ease-in-out infinite;
+    pointer-events:none; user-select:none;
+  }
+  .pwa-logo-wrap .ci-spark-1 { top:-6px; right:-4px; color:#7c3aed; animation-delay:0s; font-size:15px; }
+  .pwa-logo-wrap .ci-spark-2 { bottom:2px; left:-8px; color:#1a6fd4; animation-delay:0.9s; font-size:10px; }
+  .pwa-logo-wrap .ci-spark-3 { top:50%; right:-12px; color:#e57c1a; animation-delay:1.7s; font-size:11px; }
+  #pwa-install-card h3 {
+    font-family:'Playfair Display','Alef',serif;
+    font-size:1.4rem; font-weight:900;
+    background:linear-gradient(90deg,#1a6fd4,#7c3aed);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    background-clip:text; color:transparent;
+    margin:0;
+  }
+  #pwa-install-card .pwa-sub {
+    color:var(--muted); font-size:0.92rem; line-height:1.5;
+  }
+  #pwa-install-card .pwa-benefits {
+    list-style:none; padding:0; margin:0;
+    text-align:left; font-size:0.88rem; color:var(--text);
+  }
+  [dir="rtl"] #pwa-install-card .pwa-benefits { text-align:right; }
+  #pwa-install-card .pwa-benefits li { padding:3px 0; }
+  .pwa-btn-install {
+    width:100%; padding:12px; border-radius:50px; border:none;
+    background:linear-gradient(135deg,#1a6fd4,#7c3aed); color:#fff;
+    font-size:1rem; font-weight:700; font-family:'Source Serif 4','Alef',serif;
+    cursor:pointer; transition:all 0.15s;
+    box-shadow:0 4px 14px rgba(26,111,212,0.35);
+  }
+  .pwa-btn-install:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(26,111,212,0.45); }
+  .pwa-btn-dismiss {
+    background:none; border:none; color:var(--muted);
+    font-size:0.85rem; cursor:pointer; font-family:'Source Serif 4','Alef',serif;
+    padding:4px 12px;
+  }
+  .pwa-btn-dismiss:hover { color:var(--text); }
+  #pwa-install-close {
+    position:absolute; top:12px; right:16px;
+    background:none; border:none; font-size:1.3rem;
+    color:var(--muted); cursor:pointer; line-height:1;
+  }
+  [dir="rtl"] #pwa-install-close { right:auto; left:16px; }
+  .pwa-ios-steps { font-size:0.88rem; color:var(--text); line-height:1.7; text-align:left; }
+  [dir="rtl"] .pwa-ios-steps { text-align:right; }
+  .pwa-ios-steps .step-icon { font-size:1.1rem; vertical-align:middle; }
 </style>
 </head>
 <body>
@@ -3642,6 +3719,11 @@
             <span style="font-size:1.1em;line-height:1">🏆</span>
             <span id="auth-dd-scoreboard">Scoreboard</span>
           </button>
+          <div class="auth-dropdown-divider" id="auth-dd-pwa-divider" style="display:none"></div>
+          <button class="auth-dropdown-item" id="auth-dd-pwa-btn" style="display:none" onclick="closeAuthDropdown(); if(window._pwaShowFromMenu) window._pwaShowFromMenu()">
+            <span style="font-size:1.1em;line-height:1">📱</span>
+            <span id="auth-dd-pwa">Add to Home Screen</span>
+          </button>
           <div class="auth-dropdown-divider"></div>
           <button class="auth-dropdown-item" onclick="openSettingsModal()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -3842,7 +3924,7 @@
     <div id="dp-count"></div>
     <div id="dp-btn-row">
       <button id="dp-share-btn"></button>
-      <button id="dp-close-btn" onclick="document.getElementById('daily-percentile-popup').classList.remove('show'); showMenu()" aria-label="סגור / Close"></button>
+      <button id="dp-close-btn" onclick="document.getElementById('daily-percentile-popup').classList.remove('show'); showMenu(); if(window._pwaShowAfterGame) window._pwaShowAfterGame()" aria-label="סגור / Close"></button>
     </div>
   </div>
 </div>
@@ -4560,6 +4642,7 @@ function applyLang() {
     document.getElementById('auth-dd-signout').textContent   = lang === 'he' ? 'התנתקות'      : 'Sign out';
     document.getElementById('auth-dd-settings').textContent  = lang === 'he' ? 'הגדרות'       : 'Settings';
     document.getElementById('auth-dd-scoreboard').textContent = lang === 'he' ? 'לוח תוצאות' : 'Scoreboard';
+    document.getElementById('auth-dd-pwa').textContent = lang === 'he' ? 'הוסף למסך הבית' : 'Add to Home Screen';
   }
   if (document.getElementById('auth-dd-switch')) {
     document.getElementById('auth-dd-switch').textContent   = lang === 'he' ? 'החלף חשבון'  : 'Switch account';
@@ -7124,6 +7207,7 @@ window._onAuthChange = function(user) {
       getDoc(doc(window._fbDb, 'users', user.uid)).then(async snap => {
         if (snap.exists()) {
           const data = snap.data();
+          if (data.pwaDismissed) window._fbPwaDismissedTs = data.pwaDismissed;
           if (data.language) setLang(data.language);
           if (data.gender) {
             // Update in-memory state and gender button UI without triggering a save.
@@ -8295,6 +8379,7 @@ function closeQuizProgress() {
   document.getElementById('quiz-progress-popup').classList.remove('show');
   loadScoreboard(_qpPendingScore);
   _qpPendingScore = null;
+  if (window._pwaShowAfterGame) window._pwaShowAfterGame();
 }
 
 const _origShowResults = showResults;
@@ -8866,6 +8951,243 @@ function exitChallengeMode() {
   window.history.replaceState({}, '', url.toString());
   showMenu();
 }
+</script>
+
+<!-- PWA Install Prompt -->
+<div id="pwa-install-overlay" role="dialog" aria-modal="true" aria-labelledby="pwa-install-title"
+     onclick="if(event.target===this)dismissPwaPrompt()">
+  <div id="pwa-install-card">
+    <button id="pwa-install-close" onclick="dismissPwaPrompt()" aria-label="Close">&#10005;</button>
+    <div class="pwa-logo-wrap">
+      <img class="pwa-icon" src="logo_head.png" alt="Gilly's Israel Quiz">
+      <span class="ci-spark ci-spark-1">✦</span>
+      <span class="ci-spark ci-spark-2">✦</span>
+      <span class="ci-spark ci-spark-3">✦</span>
+    </div>
+    <h3 id="pwa-install-title"></h3>
+    <p class="pwa-sub" id="pwa-install-sub"></p>
+    <div id="pwa-install-body"></div>
+    <button class="pwa-btn-install" id="pwa-install-btn"></button>
+    <button class="pwa-btn-dismiss" onclick="dismissPwaPrompt()" id="pwa-dismiss-btn"></button>
+  </div>
+</div>
+<script>
+// ── PWA: Service Worker Registration ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
+// ── PWA: Install Prompt Logic ──
+(function() {
+  let deferredPrompt = null;
+  const DISMISS_KEY = 'pwa-install-dismissed';
+  const DISMISS_DAYS = 14;
+  const INSTALL_KEY = 'pwa-installed';
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+  });
+
+  window.addEventListener('appinstalled', () => {
+    localStorage.setItem(INSTALL_KEY, 'true');
+    deferredPrompt = null;
+    closePwaOverlay();
+  });
+
+  function isStandalone() {
+    return window.matchMedia('(display-mode: standalone)').matches
+        || window.navigator.standalone === true;
+  }
+
+  function isIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  }
+
+  function isSafari() {
+    return /Safari/.test(navigator.userAgent) && !/Chrome|CriOS|FxiOS/.test(navigator.userAgent);
+  }
+
+  function isDesktop() {
+    return !/Android|iPhone|iPad|iPod/.test(navigator.userAgent);
+  }
+
+  function wasDismissedRecently() {
+    const ts = localStorage.getItem(DISMISS_KEY);
+    if (!ts) return false;
+    return (Date.now() - parseInt(ts, 10)) / (1000 * 60 * 60 * 24) < DISMISS_DAYS;
+  }
+
+  function shouldShowPrompt() {
+    if (isStandalone()) return false;
+    if (localStorage.getItem(INSTALL_KEY) === 'true') return false;
+
+    // Logged-in user: check Firestore dismissal
+    if (window._fbUser && !window._fbUser.isAnonymous && window._fbPwaDismissedTs) {
+      if (isDesktop()) return false; // Desktop: permanent
+      var ms = typeof window._fbPwaDismissedTs.toMillis === 'function'
+        ? window._fbPwaDismissedTs.toMillis() : window._fbPwaDismissedTs;
+      if ((Date.now() - ms) / (1000 * 60 * 60 * 24) < DISMISS_DAYS) return false;
+      return true;
+    }
+
+    // Guest/anonymous: use localStorage
+    if (isDesktop() && localStorage.getItem(DISMISS_KEY)) return false; // Desktop: permanent
+    if (wasDismissedRecently()) return false; // Mobile: 14-day cooldown
+    return true;
+  }
+
+  function isAndroid() {
+    return /Android/.test(navigator.userAgent);
+  }
+
+  function getBrowserInstructions(isHe) {
+    var ua = navigator.userAgent;
+    if (/Edg/.test(ua)) return isHe
+      ? '1. לחצו על <strong>⋯</strong> (תפריט) בפינה העליונה<br>2. בחרו <strong>"התקן אפליקציה"</strong>'
+      : '1. Tap <strong>⋯</strong> (menu) at the top<br>2. Select <strong>"Install app"</strong>';
+    if (/Chrome/.test(ua) && !isAndroid()) return isHe
+      ? '1. לחצו על <strong>⋮</strong> (תפריט) בפינה העליונה<br>2. בחרו <strong>"שמירה ושיתוף"</strong><br>3. לחצו <strong>"יצירת קיצור דרך"</strong><br>4. סמנו <strong>"פתיחה בחלון"</strong> ולחצו <strong>"צור"</strong>'
+      : '1. Click <strong>⋮</strong> (menu) at the top right<br>2. Select <strong>"Cast, save, and share"</strong><br>3. Click <strong>"Create shortcut..."</strong><br>4. Check <strong>"Open as window"</strong> and click <strong>"Create"</strong>';
+    if (/Chrome|CriOS/.test(ua) && isAndroid()) return isHe
+      ? '1. לחצו על <strong>⋮</strong> (תפריט) בפינה העליונה<br>2. בחרו <strong>"הוסף למסך הבית"</strong>'
+      : '1. Tap <strong>⋮</strong> (menu) at the top right<br>2. Tap <strong>"Add to Home screen"</strong>';
+    if (/Firefox/.test(ua)) return isHe
+      ? '1. לחצו על <strong>⋮</strong> (תפריט)<br>2. בחרו <strong>"התקן"</strong>'
+      : '1. Tap <strong>⋮</strong> (menu)<br>2. Select <strong>"Install"</strong>';
+    return isHe
+      ? 'פתחו את תפריט הדפדפן ובחרו <strong>"הוסף למסך הבית"</strong>'
+      : 'Open your browser menu and select <strong>"Add to Home Screen"</strong>';
+  }
+
+  function populatePrompt() {
+    const isHe = (typeof lang !== 'undefined' && lang === 'he');
+    const card = document.getElementById('pwa-install-card');
+    const titleEl = document.getElementById('pwa-install-title');
+    const subEl = document.getElementById('pwa-install-sub');
+    const bodyEl = document.getElementById('pwa-install-body');
+    const installBtn = document.getElementById('pwa-install-btn');
+    const dismissBtn = document.getElementById('pwa-dismiss-btn');
+
+    card.dir = isHe ? 'rtl' : 'ltr';
+    titleEl.textContent = isHe ? 'הוסיפו למסך הבית' : 'Add to Home Screen';
+    subEl.textContent = isHe
+      ? 'שחקו מהר יותר, בלי דפדפן, במסך מלא!'
+      : 'Play faster, no browser, right from your screen!';
+
+    if (deferredPrompt) {
+      // Native install available (Android/Desktop Chrome/Edge)
+      bodyEl.innerHTML = isHe
+        ? '<ul class="pwa-benefits" dir="rtl">' +
+          '<li>⚡ גישה מהירה מהמסך הראשי</li>' +
+          '<li>📱 חוויה של אפליקציה מלאה</li>' +
+          '<li>🎯 ללא סרגל דפדפן</li></ul>'
+        : '<ul class="pwa-benefits">' +
+          '<li>⚡ Quick access from home screen</li>' +
+          '<li>📱 Full-screen app experience</li>' +
+          '<li>🎯 No browser toolbar</li></ul>';
+      installBtn.textContent = isHe ? 'הוסיפו למסך הבית' : 'Add to Home Screen';
+      installBtn.onclick = function() { triggerPwaInstall(); };
+    } else if (isIOS() && isSafari()) {
+      // iOS Safari — share sheet instructions
+      bodyEl.innerHTML = isHe
+        ? '<div class="pwa-ios-steps" dir="rtl">' +
+          '1. לחצו על <span class="step-icon">⬆️</span> (שיתוף) בסרגל הכלים<br>' +
+          '2. גללו ובחרו <strong>"הוסף למסך הבית"</strong> <span class="step-icon">➕</span><br>' +
+          '3. לחצו <strong>"הוסף"</strong></div>'
+        : '<div class="pwa-ios-steps">' +
+          '1. Tap <span class="step-icon">⬆️</span> (Share) in the toolbar<br>' +
+          '2. Scroll and tap <strong>"Add to Home Screen"</strong> <span class="step-icon">➕</span><br>' +
+          '3. Tap <strong>"Add"</strong></div>';
+      installBtn.textContent = isHe ? 'הבנתי!' : 'Got it!';
+      installBtn.onclick = function() { dismissPwaPrompt(); };
+    } else {
+      // Fallback — browser-specific menu instructions
+      bodyEl.innerHTML = '<div class="pwa-ios-steps"' + (isHe ? ' dir="rtl"' : '') + '>' +
+        getBrowserInstructions(isHe) + '</div>';
+      installBtn.textContent = isHe ? 'הבנתי!' : 'Got it!';
+      installBtn.onclick = function() { dismissPwaPrompt(); };
+    }
+    dismissBtn.textContent = isHe ? 'לא עכשיו' : 'Not now';
+  }
+
+  function showPwaOverlay() {
+    populatePrompt();
+    const overlay = document.getElementById('pwa-install-overlay');
+    overlay.classList.add('open');
+    document.getElementById('pwa-install-btn').focus();
+    overlay.addEventListener('keydown', pwaKeyHandler);
+  }
+
+  function closePwaOverlay() {
+    const overlay = document.getElementById('pwa-install-overlay');
+    overlay.classList.remove('open');
+    overlay.removeEventListener('keydown', pwaKeyHandler);
+  }
+
+  function pwaKeyHandler(e) {
+    if (e.key === 'Escape') { dismissPwaPrompt(); return; }
+    if (e.key === 'Tab') {
+      const focusable = document.querySelectorAll('#pwa-install-card button');
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus();
+      }
+    }
+  }
+
+  window.dismissPwaPrompt = function() {
+    localStorage.setItem(DISMISS_KEY, Date.now().toString());
+    if (window._fbUser && !window._fbUser.isAnonymous && window._fbFns && window._fbDb) {
+      var fns = window._fbFns;
+      fns.setDoc(fns.doc(window._fbDb, 'users', window._fbUser.uid),
+        { pwaDismissed: new Date() }, { merge: true }).catch(function(){});
+      window._fbPwaDismissedTs = Date.now();
+    }
+    closePwaOverlay();
+  };
+
+  window.triggerPwaInstall = function() {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((result) => {
+        if (result.outcome === 'accepted') {
+          localStorage.setItem(INSTALL_KEY, 'true');
+        }
+        deferredPrompt = null;
+        closePwaOverlay();
+      });
+    }
+  };
+
+  window._pwaShowAfterGame = function() {
+    if (!shouldShowPrompt()) return;
+    setTimeout(() => {
+      if (shouldShowPrompt()) showPwaOverlay();
+    }, 2000);
+  };
+
+  window._pwaShowFromMenu = function() {
+    showPwaOverlay();
+  };
+
+  // Show/hide the dropdown button based on install state
+  function updatePwaDropdownBtn() {
+    var btn = document.getElementById('auth-dd-pwa-btn');
+    var div = document.getElementById('auth-dd-pwa-divider');
+    if (!btn) return;
+    var show = !isStandalone() && localStorage.getItem(INSTALL_KEY) !== 'true';
+    btn.style.display = show ? '' : 'none';
+    div.style.display = show ? '' : 'none';
+  }
+  updatePwaDropdownBtn();
+  window.addEventListener('appinstalled', updatePwaDropdownBtn);
+})();
 </script>
 
 </body>
