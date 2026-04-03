@@ -5373,6 +5373,7 @@ let dailyChallengePreviewTimer = null, dailyChallengePreviewInterval = null;
 let _dcPreloadTown = null;        // town preloaded while intro popup is open
 let _dcPreloadNearbyPt = null;    // random nearby point used for preload view
 let _dcPreloadPrevLayer = null;   // layer before preloading (to restore on cancel)
+let _dcStageBounds = null;        // bounds used for daily challenge map view (both stages)
 let _dpPendingScore = null;       // score stored so post-login can show percentile
 let _dcTileLoadListener = null;   // pending tile-load handler (cleaned up on cancel)
 
@@ -6577,12 +6578,33 @@ const REGION_GROUPS = {
   center: ['Center', 'Jerusalem'],
   south:  ['South', 'West Bank'],
 };
-const REGION_VIEWS = {
-  all:    { center: [31.5,  34.9],  zoom: 7   },
-  north:  { center: [32.85, 35.35], zoom: 8   },
-  center: { center: [31.95, 34.95], zoom: 8.5 },
-  south:  { center: [30.7,  34.85], zoom: 7.5 },
-};
+const REGION_VIEWS = { all: { center: [31.5, 34.9], zoom: 7 } };
+// Compute region bounds from TOWNS data with padding
+['north', 'center', 'south'].forEach(r => {
+  const rg = REGION_GROUPS[r];
+  const towns = TOWNS.filter(t => rg.includes(t.region));
+  if (!towns.length) return;
+  const lats = towns.map(t => t.lat), lngs = towns.map(t => t.lng);
+  const latPad = 0.05, lngPad = 0.25;
+  REGION_VIEWS[r] = {
+    bounds: L.latLngBounds(
+      [Math.min(...lats) - latPad, Math.min(...lngs) - lngPad],
+      [Math.max(...lats) + latPad, Math.max(...lngs) + lngPad]
+    )
+  };
+});
+
+function applyRegionView(r) {
+  const v = REGION_VIEWS[r || 'all'];
+  if (v.bounds) {
+    map.setMaxBounds(null);
+    map.fitBounds(v.bounds, { animate: false });
+    map.setMaxBounds(v.bounds);
+  } else {
+    map.setMaxBounds(ISRAEL_BOUNDS);
+    map.setView(v.center, v.zoom, { animate: false });
+  }
+}
 
 function setRegion(r) {
   region = r;
@@ -6830,8 +6852,7 @@ function endLearningPreview() {
   document.getElementById('learning-preview-bar').classList.remove('active');
   document.getElementById('learning-big-countdown').classList.remove('active');
   if (currentLayer === 'street') toggleMapLayer(true);
-  const v = REGION_VIEWS['all'];
-  map.setView(v.center, v.zoom);
+  applyRegionView('all');
 }
 
 function clearLearningPreview() {
@@ -7263,9 +7284,8 @@ function startDailyChallenge() {
 
   // Preload the street map in the background while the popup is open,
   // so tiles are ready before the user clicks "Let's go!".
-  // Zoom 14 covers ~4× more geographic area than zoom 16 at the cost of
-  // pre-buffering lower-res tiles (each zoom level is a separate tile set,
-  // so going below 14 would load even-lower-res tiles without extra benefit).
+  // We preload a generous area around the town so tiles are cached for the
+  // hint-style view used in both the memorisation and guessing stages.
   _dcPreloadTown = getDailyLocation();
   _dcPreloadPrevLayer = currentLayer;
   _dcPreloadNearbyPt = getRandomPointNearby(_dcPreloadTown.lat, _dcPreloadTown.lng, 1);
@@ -7289,7 +7309,16 @@ function startDailyChallenge() {
   };
   activeStreetLayer().once('load', _dcTileLoadListener);
 
-  map.setView([_dcPreloadTown.lat, _dcPreloadTown.lng], 14, { animate: false });
+  // Preload at hint-style bounds with extra padding so tiles for the actual
+  // game view are already cached. Use 2× the game radius for generous coverage.
+  const preRadiusKm = DIFF[difficulty].maxKm * 0.55 / 8;
+  const prLatOff = (preRadiusKm * 2) / 111;
+  const prLngOff = (preRadiusKm * 2) / (111 * Math.cos(_dcPreloadTown.lat * Math.PI / 180));
+  const preBounds = L.latLngBounds(
+    [_dcPreloadTown.lat - prLatOff, _dcPreloadTown.lng - prLngOff],
+    [_dcPreloadTown.lat + prLatOff, _dcPreloadTown.lng + prLngOff]
+  );
+  map.fitBounds(preBounds, { padding: [40, 40], animate: false });
 }
 
 function closeDailyChallengeIntro() {
@@ -7309,11 +7338,11 @@ function cancelDailyChallengeIntro() {
     }
     document.getElementById('town-name').classList.remove('blurred-location');
     document.querySelector('#mobile-topbar-town .mob-town-text').classList.remove('blurred-location');
-    const v = REGION_VIEWS['all'];
-    map.setView(v.center, v.zoom);
+    applyRegionView('all');
     _dcPreloadTown = null;
     _dcPreloadNearbyPt = null;
     _dcPreloadPrevLayer = null;
+    _dcStageBounds = null;
   }
   closeDailyChallengeIntro();
 }
@@ -7356,11 +7385,24 @@ function startDailyChallengeGame() {
   streetUsedThisRound = false;
   clearAllMarkers();
 
-  // Zoom to the game view (zoom 16 at nearby point). During preload the map was
-  // set to zoom 14 for a wider tile buffer, so we always zoom in to 16 here.
+  // Zoom to hint-style view: same radius logic as the quiz hint but 8× more
+  // zoomed in.  The town is placed off-center so it's not at the dead centre.
   if (currentLayer !== 'street') toggleMapLayer(true);
-  const nearbyPoint = alreadyPositioned ? preloadedNearbyPt : getRandomPointNearby(town.lat, town.lng, 1);
-  map.setView([nearbyPoint.lat, nearbyPoint.lng], 16, { animate: false });
+  const dcHintRadiusKm = DIFF[difficulty].maxKm * 0.55 / 8;
+  const dcOffsetFraction = 0.45 + Math.random() * 0.35;
+  const dcAngle = Math.random() * 2 * Math.PI;
+  const dcKmPerDegreeLat = 111;
+  const dcKmPerDegreeLng = 111 * Math.cos(town.lat * Math.PI / 180);
+  const dcOffsetKm = dcHintRadiusKm * dcOffsetFraction;
+  const dcCenterLat = town.lat - (Math.sin(dcAngle) * dcOffsetKm) / dcKmPerDegreeLat;
+  const dcCenterLng = town.lng - (Math.cos(dcAngle) * dcOffsetKm) / dcKmPerDegreeLng;
+  const dcLatOff = dcHintRadiusKm / dcKmPerDegreeLat;
+  const dcLngOff = dcHintRadiusKm / dcKmPerDegreeLng;
+  _dcStageBounds = L.latLngBounds(
+    [dcCenterLat - dcLatOff, dcCenterLng - dcLngOff],
+    [dcCenterLat + dcLatOff, dcCenterLng + dcLngOff]
+  );
+  map.fitBounds(_dcStageBounds, { padding: [40, 40], animate: false });
 
   // Hide overlay and results panels
   document.getElementById('overlay').style.display = 'none';
@@ -7398,12 +7440,7 @@ function startDailyChallengeGame() {
 function startDailyChallengePreview(town) {
   dailyChallengePreviewActive = true;
 
-  // Lock zoom during the street-view memorisation phase
-  map.scrollWheelZoom.disable();
-  map.doubleClickZoom.disable();
-  map.touchZoom.disable();
-  map.keyboard.disable();
-  if (map.zoomControl) map.zoomControl.getContainer().style.pointerEvents = 'none';
+  // Zoom is enabled during the memorisation phase so the user can explore
 
   let secondsLeft = 15;
   const bar = document.getElementById('learning-preview-bar');
@@ -7429,19 +7466,15 @@ function endDailyChallengePreview(town) {
   dailyChallengePreviewTimer = dailyChallengePreviewInterval = null;
   document.getElementById('learning-preview-bar').classList.remove('active');
 
-  // Restore zoom
-  map.scrollWheelZoom.enable();
-  map.doubleClickZoom.enable();
-  map.touchZoom.enable();
-  map.keyboard.enable();
-  if (map.zoomControl) map.zoomControl.getContainer().style.pointerEvents = '';
-
   // Switch to satellite view (step 3d)
   if (currentLayer === 'street') toggleMapLayer(true);
 
-  // Zoom back to full-Israel view so user can click the correct spot
-  const v = REGION_VIEWS['all'];
-  map.setView(v.center, v.zoom);
+  // Zoom to the same hint-style bounds used in the memorisation stage
+  if (_dcStageBounds) {
+    map.fitBounds(_dcStageBounds, { padding: [40, 40], animate: false });
+  } else {
+    applyRegionView('all');
+  }
 
   // Reveal the location name by removing the blur (step 3d)
   const townName = lang === 'he' ? town.nameHe : town.name;
@@ -7463,11 +7496,7 @@ function clearDailyChallengePreview() {
   document.getElementById('learning-preview-bar').classList.remove('active');
   document.getElementById('town-name').classList.remove('blurred-location');
   document.querySelector('#mobile-topbar-town .mob-town-text').classList.remove('blurred-location');
-  map.scrollWheelZoom.enable();
-  map.doubleClickZoom.enable();
-  map.touchZoom.enable();
-  map.keyboard.enable();
-  if (map.zoomControl) map.zoomControl.getContainer().style.pointerEvents = '';
+  _dcStageBounds = null;
 }
 
 async function startLearning() {
@@ -7518,8 +7547,7 @@ async function startLearning() {
   document.body.classList.remove('sb-mobile-hide-play-again');
   document.getElementById('btn-back').style.display = 'inline-block';
 
-  const v = REGION_VIEWS['all'];
-  map.setView(v.center, v.zoom);
+  applyRegionView('all');
 
   document.getElementById('hud').style.display = 'none';
   document.getElementById('learning-hud').classList.add('active');
@@ -7595,8 +7623,7 @@ async function startGame() {
   document.getElementById('scoreboard-panel').className = '';
   document.body.classList.remove('sb-mobile-hide-play-again');
   document.getElementById('btn-back').style.display = 'inline-block';
-  const v = REGION_VIEWS[region];
-  map.setView(v.center, v.zoom);
+  applyRegionView(region);
   loadTown();
 }
 
@@ -7753,8 +7780,7 @@ function _processMapClick(e) {
       else showResults();
     } else {
       // Zoom out to the same view the game started with
-      const v = REGION_VIEWS[region];
-      map.setView(v.center, v.zoom);
+      applyRegionView(region);
       loadTown();
     }
   }, 3500);
@@ -9533,8 +9559,7 @@ function startChallengeGame() {
   document.getElementById('scoreboard-panel').className = '';
   document.body.classList.remove('sb-mobile-hide-play-again');
 
-  const v = REGION_VIEWS['all'];
-  map.setView(v.center, v.zoom);
+  applyRegionView('all');
   loadTown();
 }
 
@@ -9857,8 +9882,7 @@ async function _mpJoinRoom(roomId) {
       document.getElementById('mp-players-bar').classList.add('active');
 
       if (currentLayer === 'street') toggleMapLayer(true);
-      const v = REGION_VIEWS[region];
-      map.setView(v.center, v.zoom);
+      applyRegionView(region);
       clearAllMarkers();
       _mpLoadRound(currentIdx);
     } else if (midGame) {
@@ -10200,8 +10224,7 @@ function _mpOnGameStart() {
   document.getElementById('mp-players-bar').classList.add('active');
 
   if (currentLayer === 'street') toggleMapLayer(true);
-  const v = REGION_VIEWS[region];
-  map.setView(v.center, v.zoom);
+  applyRegionView(region);
 
   clearAllMarkers();
   _mpLoadRound(0);
@@ -10374,8 +10397,7 @@ function _mpOnRoundAdvance(newRound) {
   // Brief pause then load next round
   clearMapFeedback();
   waiting = false;
-  const v = REGION_VIEWS[region];
-  map.setView(v.center, v.zoom);
+  applyRegionView(region);
   _mpLoadRound(newRound);
 }
 
